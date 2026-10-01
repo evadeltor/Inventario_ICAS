@@ -39,15 +39,25 @@
       <section style="display: flex; flex-direction: column; gap: var(--space-4);">
         <div class="blueprint" style="position: relative; aspect-ratio: 4 / 3; overflow: hidden; background: var(--color-neutral-900);">
           <i class="corner tl"></i><i class="corner tr"></i><i class="corner bl"></i><i class="corner br"></i>
-          <video ref="{{ videoRef }}" style="position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover;"></video>
+          <video ref="{{ videoRef }}" onClick="{{ refocus }}" style="position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover;"></video>
           <sc-if value="{{ camOn }}">
             <div style="position: absolute; inset: 0; display: grid; place-items: center; pointer-events: none;">
               <div style="width: 52%; aspect-ratio: 1; border: 2px dashed var(--color-accent-300);"></div>
             </div>
             <div style="position: absolute; left: 0; right: 0; bottom: 0; padding: var(--space-3); display: flex; justify-content: space-between; align-items: center; background: color-mix(in srgb, var(--color-neutral-900) 70%, transparent); color: var(--color-bg);">
-              <span style="font-size: 14px;">Apunta al código 2D de la etiqueta</span>
-              <button class="btn btn-secondary" onClick="{{ stopCam }}" style="color: var(--color-bg); border-color: color-mix(in srgb, var(--color-bg) 50%, transparent);">Parar</button>
+              <span style="font-size: 14px;">A unos 15 cm · toca para enfocar</span>
+              <div style="display: flex; gap: var(--space-2);">
+                <sc-if value="{{ torchCap }}"><button class="btn btn-secondary" onClick="{{ toggleTorch }}" style="color: var(--color-bg); border-color: color-mix(in srgb, var(--color-bg) 50%, transparent);">{{ torchLabel }}</button></sc-if>
+                <button class="btn btn-secondary" onClick="{{ stopCam }}" style="color: var(--color-bg); border-color: color-mix(in srgb, var(--color-bg) 50%, transparent);">Parar</button>
+              </div>
             </div>
+            <sc-if value="{{ hasZoom }}">
+              <div style="position: absolute; left: 0; right: 0; top: 0; padding: var(--space-3); display: flex; align-items: center; gap: var(--space-3); background: color-mix(in srgb, var(--color-neutral-900) 70%, transparent); color: var(--color-bg);">
+                <span style="font-size: 13px;">Zoom</span>
+                <input type="range" min="{{ zoomMin }}" max="{{ zoomMax }}" step="{{ zoomStep }}" value="{{ zoom }}" onChange="{{ setZoom }}" style="flex: 1; accent-color: var(--color-accent-300);">
+                <span style="font-family: var(--font-heading); font-size: 18px; font-weight: 600; min-width: 3ch; text-align: right;">{{ zoomLabel }}</span>
+              </div>
+            </sc-if>
           </sc-if>
           <sc-if value="{{ camOff }}" hint-placeholder-val="{{ true }}">
             <div style="position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: var(--space-4); padding: var(--space-6); background: var(--color-bg); text-align: center;">
@@ -58,6 +68,8 @@
                 <i class="corner tl"></i><i class="corner tr"></i><i class="corner bl"></i><i class="corner br"></i>
                 Abrir cámara
               </button>
+              <button class="btn btn-secondary" onClick="{{ pickPhoto }}" style="min-height: 44px; padding-inline: 20px;">Hacer foto del código</button>
+              <input type="file" accept="image/*" capture="environment" ref="{{ photoRef }}" onChange="{{ onPhoto }}" style="display: none;">
               <sc-if value="{{ hasCamErr }}"><p style="margin: 0; font-size: 13px; color: var(--color-accent-800); max-width: 40ch;">{{ camErr }}</p></sc-if>
             </div>
           </sc-if>
@@ -394,6 +406,7 @@ function loadZxing() {
 
 class Component extends DCLogic {
   videoRef = React.createRef();
+  photoRef = React.createRef();
   fileRef = React.createRef();
   state = { tab: 'scan', inv: loadInv(), camOn: false, camErr: '', raw: '', fields: {}, hasResult: false,
     mpnQuery: '', bagQty: 0, dType: 'R', dValue: '', dPkg: '', loc: '', takeN: 1, manual: '', search: '', toast: '', log: loadLS(LOGKEY, []), user: loadLS(USERKEY, ''),
@@ -485,45 +498,106 @@ class Component extends DCLogic {
     window.scrollTo({ top: 0, behavior: 'smooth' });
   }
 
+  async initNative() {
+    if (this.native !== undefined) return;
+    this.native = null;
+    if ('BarcodeDetector' in window) {
+      try { if ((await BarcodeDetector.getSupportedFormats()).includes('data_matrix')) this.native = new BarcodeDetector({ formats: ['data_matrix', 'qr_code'] }); } catch (e) {}
+    }
+  }
+  async decodeCanvas(cv) {
+    if (this.native) { try { const r = await this.native.detect(cv); if (r.length) return r[0].rawValue; } catch (e) {} }
+    const Z = window.ZXing; if (!Z) return null;
+    if (!this.zr) {
+      const hints = new Map();
+      hints.set(Z.DecodeHintType.POSSIBLE_FORMATS, [Z.BarcodeFormat.DATA_MATRIX, Z.BarcodeFormat.QR_CODE]);
+      hints.set(Z.DecodeHintType.TRY_HARDER, true);
+      this.zr = new Z.MultiFormatReader(); this.zr.setHints(hints);
+    }
+    try { return this.zr.decode(new Z.BinaryBitmap(new Z.HybridBinarizer(new Z.HTMLCanvasElementLuminanceSource(cv)))).getText(); } catch (e) { return null; }
+  }
+  grab(src, sw, sh, frac, out) {
+    const cv = this.cv || (this.cv = document.createElement('canvas'));
+    const side = Math.min(sw, sh) * frac, sx = (sw - side) / 2, sy = (sh - side) / 2;
+    cv.width = cv.height = out;
+    const ctx = cv.getContext('2d', { willReadFrequently: true });
+    ctx.imageSmoothingEnabled = true;
+    ctx.drawImage(src, sx, sy, side, side, 0, 0, out, out);
+    return cv;
+  }
   startCam = async () => {
     if (this.state.camOn) return;
-    this.setState({ camOn: true, camErr: '' });
+    this.setState({ camOn: true, camErr: '', zoomCaps: null, torchCap: false, torch: false });
     const v = this.videoRef.current;
     v.muted = true; v.setAttribute('playsinline', '');
     try {
-      let native = false;
-      if ('BarcodeDetector' in window) { try { native = (await BarcodeDetector.getSupportedFormats()).includes('data_matrix'); } catch (e) {} }
-      if (native) {
-        this.stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } });
-        v.srcObject = this.stream; await v.play();
-        const det = new BarcodeDetector({ formats: ['data_matrix', 'qr_code'] });
-        const tick = async () => {
-          if (!this.state.camOn) return;
-          try { const r = await det.detect(v); if (r.length) { this.stopCam(); this.handleRaw(r[0].rawValue); return; } } catch (e) {}
-          this.timer = setTimeout(tick, 250);
-        };
-        tick();
-      } else {
-        await loadZxing();
-        const Z = window.ZXing, hints = new Map();
-        hints.set(Z.DecodeHintType.POSSIBLE_FORMATS, [Z.BarcodeFormat.DATA_MATRIX, Z.BarcodeFormat.QR_CODE]);
-        hints.set(Z.DecodeHintType.TRY_HARDER, true);
-        this.reader = new Z.BrowserMultiFormatReader(hints);
-        await this.reader.decodeFromConstraints({ video: { facingMode: 'environment' } }, v, res => {
-          if (res) { const t = res.getText(); this.stopCam(); this.handleRaw(t); }
-        });
-      }
+      await this.initNative();
+      if (!this.native) await loadZxing();
+      this.stream = await navigator.mediaDevices.getUserMedia({ audio: false, video: { facingMode: { ideal: 'environment' }, width: { ideal: 1920 }, height: { ideal: 1080 } } });
+      v.srcObject = this.stream; await v.play();
+      const track = this.stream.getVideoTracks()[0]; this.track = track;
+      const caps = (track.getCapabilities && track.getCapabilities()) || {};
+      const adv = [];
+      if (caps.focusMode && caps.focusMode.includes('continuous')) adv.push({ focusMode: 'continuous' });
+      let zoomCaps = null;
+      if (caps.zoom) { zoomCaps = { min: caps.zoom.min, max: caps.zoom.max, step: caps.zoom.step || 0.1 }; const z = Math.min(caps.zoom.max, Math.max(caps.zoom.min, 2)); adv.push({ zoom: z }); this.setState({ zoom: z }); }
+      if (adv.length) { try { await track.applyConstraints({ advanced: adv }); } catch (e) {} }
+      this.focusCaps = caps.focusMode || [];
+      this.setState({ zoomCaps, torchCap: !!caps.torch });
+      let n = 0;
+      const tick = async () => {
+        if (!this.state.camOn) return;
+        if (v.videoWidth) {
+          const frac = [0.55, 0.8, 1][n++ % 3];
+          const txt = await this.decodeCanvas(this.grab(v, v.videoWidth, v.videoHeight, frac, 900));
+          if (txt) { if (navigator.vibrate) navigator.vibrate(80); this.stopCam(); this.handleRaw(txt); return; }
+        }
+        this.timer = setTimeout(tick, 120);
+      };
+      tick();
     } catch (e) {
       this.stopCam();
-      this.setState({ camErr: 'No se pudo abrir la cámara (' + (e.name || e.message) + '). La web debe abrirse por HTTPS; mientras, usa el campo de texto.' });
+      this.setState({ camErr: 'No se pudo abrir la cámara (' + (e.name || e.message) + '). Prueba con «Hacer foto».' });
     }
   };
   stopCam = () => {
     clearTimeout(this.timer);
     if (this.stream) { this.stream.getTracks().forEach(t => t.stop()); this.stream = null; }
-    if (this.reader) { try { this.reader.reset(); } catch (e) {} this.reader = null; }
+    this.track = null;
     const v = this.videoRef.current; if (v) v.srcObject = null;
     if (this.state.camOn) this.setState({ camOn: false });
+  };
+  setZoom = e => {
+    const z = parseFloat(e.target.value); this.setState({ zoom: z });
+    if (this.track) this.track.applyConstraints({ advanced: [{ zoom: z }] }).catch(() => {});
+  };
+  toggleTorch = () => {
+    const t = !this.state.torch; this.setState({ torch: t });
+    if (this.track) this.track.applyConstraints({ advanced: [{ torch: t }] }).catch(() => {});
+  };
+  refocus = () => {
+    if (!this.track || !this.focusCaps) return;
+    const m = this.focusCaps.includes('single-shot') ? 'single-shot' : this.focusCaps.includes('continuous') ? 'continuous' : null;
+    if (m) this.track.applyConstraints({ advanced: [{ focusMode: m }] }).then(() => m === 'single-shot' && this.focusCaps.includes('continuous') && setTimeout(() => this.track && this.track.applyConstraints({ advanced: [{ focusMode: 'continuous' }] }).catch(() => {}), 1200)).catch(() => {});
+  };
+  pickPhoto = () => { this.stopCam(); this.photoRef.current && this.photoRef.current.click(); };
+  onPhoto = async e => {
+    const f = e.target.files && e.target.files[0]; e.target.value = '';
+    if (!f) return;
+    this.flash('Leyendo foto…');
+    try {
+      await this.initNative();
+      if (!this.native) await loadZxing();
+      const img = await new Promise((res, rej) => { const i = new Image(); i.onload = () => res(i); i.onerror = rej; i.src = URL.createObjectURL(f); });
+      const W = img.naturalWidth, H = img.naturalHeight;
+      let txt = null;
+      for (const [frac, out] of [[1, 1600], [0.6, 1400], [0.4, 1200], [0.8, 2000], [0.25, 1000]]) {
+        txt = await this.decodeCanvas(this.grab(img, W, H, frac, out));
+        if (txt) break;
+      }
+      if (txt) this.handleRaw(txt);
+      else this.flash('No encuentro el código. Haz la foto más cerca y que se vea nítido.');
+    } catch (err) { this.flash('No se pudo leer la foto'); }
   };
 
   addBag = () => {
@@ -613,7 +687,10 @@ class Component extends DCLogic {
       invCount: inv.length, invUnits: inv.reduce((a, i) => a + (i.qty || 0), 0),
       videoRef: this.videoRef, fileRef: this.fileRef,
       camOn: s.camOn, camOff: !s.camOn, camErr: s.camErr, hasCamErr: !!s.camErr,
-      startCam: this.startCam, stopCam: this.stopCam,
+      startCam: this.startCam, stopCam: this.stopCam, photoRef: this.photoRef, pickPhoto: this.pickPhoto, onPhoto: this.onPhoto,
+      hasZoom: !!s.zoomCaps, zoom: s.zoom || 1, zoomMin: s.zoomCaps ? s.zoomCaps.min : 1, zoomMax: s.zoomCaps ? s.zoomCaps.max : 1, zoomStep: s.zoomCaps ? s.zoomCaps.step : 0.1,
+      zoomLabel: (s.zoom || 1).toFixed(1) + '×', setZoom: this.setZoom, refocus: this.refocus,
+      torchCap: !!s.torchCap, toggleTorch: this.toggleTorch, torchLabel: s.torch ? 'Luz: sí' : 'Luz: no',
       manual: s.manual, onManual: set('manual'),
       onManualKey: e => { if (e.key === 'Enter' && s.manual.trim()) this.handleRaw(s.manual); },
       submitManual: () => s.manual.trim() && this.handleRaw(s.manual),

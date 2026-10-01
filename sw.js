@@ -1,5 +1,5 @@
 // Guarda la app en el móvil para que abra sin cobertura
-const CACHE = 'pcbinv-v1';
+const CACHE = 'pcbinv-v2';
 const SHELL = ['./', './index.html', './support.js', './manifest.webmanifest', './apps-script.gs',
   './_ds/industry-ebf0d374-a771-42d1-a95c-91d2700af12e/styles.css',
   './_ds/industry-ebf0d374-a771-42d1-a95c-91d2700af12e/_ds_bundle.js',
