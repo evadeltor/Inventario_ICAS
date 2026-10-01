@@ -321,6 +321,7 @@ const SEED = [
   ['CL21A106KAYNNNE','Samsung','C',10e-6,'0805','10%',80,'C2'],
   ['LM358DR','Texas Instruments','IC',null,'SOIC-8','—',25,'D1']
 ].map(r => ({ mpn: r[0], mfr: r[1], type: r[2], value: r[3], pkg: r[4], tol: r[5], qty: r[6], loc: r[7] }));
+const DEFAULT_SHEET = 'https://script.google.com/macros/s/AKfycbwg4cjeO36EVTZB-gtv-49WkjxSM0mCcRYXybuxAlSqYC4kvBR6reU81eVYhJjVeVS4/exec';
 const LOGKEY = 'pcbinv.log.v1', USERKEY = 'pcbinv.user', SHEETKEY = 'pcbinv.sheet', PENDKEY = 'pcbinv.pending';
 const toRemote = i => ({ mpn: i.mpn, mfr: i.mfr || '', type: i.type || '', value: i.value != null ? short(i.value, i.type) : '', pkg: i.pkg || '', tol: i.tol || '', qty: i.qty || 0, loc: i.loc || '' });
 const DEMO_A = '>[)>06<GS>KCC7565<GS>14K027<GS>1PPFC-W0805LF-03-5051-B<GS>Q40<GS>11K057316233<GS>4LUS<GS>1VTT Electronics';
@@ -421,7 +422,7 @@ class Component extends DCLogic {
   fileRef = React.createRef();
   state = { tab: 'scan', inv: loadInv(), camOn: false, camErr: '', raw: '', fields: {}, hasResult: false,
     mpnQuery: '', bagQty: 0, dType: 'R', dValue: '', dPkg: '', loc: '', takeN: 1, manual: '', search: '', toast: '', log: loadLS(LOGKEY, []), user: loadLS(USERKEY, ''),
-    sheetUrl: loadLS(SHEETKEY, ''), urlDraft: loadLS(SHEETKEY, ''), sync: 'off', syncMsg: '', lastSync: 0, online: navigator.onLine, nPending: loadLS(PENDKEY, []).length };
+    sheetUrl: loadLS(SHEETKEY, '') || DEFAULT_SHEET, urlDraft: loadLS(SHEETKEY, '') || DEFAULT_SHEET, sync: 'off', syncMsg: '', lastSync: 0, online: navigator.onLine, nPending: loadLS(PENDKEY, []).length };
   pending = loadLS(PENDKEY, []);
 
   componentDidMount() {
