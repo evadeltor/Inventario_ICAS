@@ -1,0 +1,657 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <link rel="stylesheet" href="_ds/industry-ebf0d374-a771-42d1-a95c-91d2700af12e/styles.css">
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600&amp;family=Barlow:wght@400;500;600&amp;display=swap">
+  <script src="_ds/industry-ebf0d374-a771-42d1-a95c-91d2700af12e/_ds_bundle.js"></script>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <link rel="manifest" href="manifest.webmanifest">
+  <script src="https://unpkg.com/@zxing/library@0.21.3/umd/index.min.js" async></script>
+  <style>
+    html, body { margin: 0; background: var(--color-bg); color: var(--color-text); font-family: var(--font-body); }
+    a { color: var(--color-accent-700); } a:hover { color: var(--color-accent-900); }
+    * { box-sizing: border-box; }
+  </style>
+</helmet>
+<div style="min-height: 100vh; background: var(--color-bg);">
+  <header class="nav" style="max-width: 680px; margin: 0 auto; flex-wrap: wrap; gap: var(--space-3);">
+    <div class="nav-brand" style="display: flex; align-items: center; gap: 8px; font-size: 22px; letter-spacing: 0.01em;">
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="4" width="16" height="16"></rect><rect x="9" y="9" width="6" height="6"></rect><path d="M9 1v3M15 1v3M9 20v3M15 20v3M20 9h3M20 14h3M1 9h3M1 14h3"></path></svg>
+      <span>Inventario PCB</span>
+    </div>
+    <button class="btn btn-ghost" onClick="{{ goInv }}" style="font-size: 13px; color: var(--color-accent-700);">{{ syncLabel }}</button>
+    <div class="seg" role="tablist">
+      <label class="seg-opt"><input type="radio" name="tab" checked="{{ isScanTab }}" onChange="{{ goScan }}" style="position: absolute; opacity: 0; width: 0; height: 0;">Escanear</label>
+      <label class="seg-opt"><input type="radio" name="tab" checked="{{ isInvTab }}" onChange="{{ goInv }}" style="position: absolute; opacity: 0; width: 0; height: 0;">Inventario · {{ invCount }}</label>
+    </div>
+  </header>
+
+  <main style="max-width: 680px; margin: 0 auto; padding: var(--space-4) var(--space-4) 96px; display: flex; flex-direction: column; gap: var(--space-8);">
+
+    <sc-if value="{{ isScanTab }}" hint-placeholder-val="{{ true }}">
+      <section style="display: flex; flex-direction: column; gap: var(--space-4);">
+        <div class="blueprint" style="position: relative; aspect-ratio: 4 / 3; overflow: hidden; background: var(--color-neutral-900);">
+          <i class="corner tl"></i><i class="corner tr"></i><i class="corner bl"></i><i class="corner br"></i>
+          <video ref="{{ videoRef }}" style="position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover;"></video>
+          <sc-if value="{{ camOn }}">
+            <div style="position: absolute; inset: 0; display: grid; place-items: center; pointer-events: none;">
+              <div style="width: 52%; aspect-ratio: 1; border: 2px dashed var(--color-accent-300);"></div>
+            </div>
+            <div style="position: absolute; left: 0; right: 0; bottom: 0; padding: var(--space-3); display: flex; justify-content: space-between; align-items: center; background: color-mix(in srgb, var(--color-neutral-900) 70%, transparent); color: var(--color-bg);">
+              <span style="font-size: 14px;">Apunta al código 2D de la etiqueta</span>
+              <button class="btn btn-secondary" onClick="{{ stopCam }}" style="color: var(--color-bg); border-color: color-mix(in srgb, var(--color-bg) 50%, transparent);">Parar</button>
+            </div>
+          </sc-if>
+          <sc-if value="{{ camOff }}" hint-placeholder-val="{{ true }}">
+            <div style="position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: var(--space-4); padding: var(--space-6); background: var(--color-bg); text-align: center;">
+              <svg width="44" height="44" viewBox="0 0 24 24" fill="none" stroke="var(--color-accent)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7V5a2 2 0 0 1 2-2h2"></path><path d="M17 3h2a2 2 0 0 1 2 2v2"></path><path d="M21 17v2a2 2 0 0 1-2 2h-2"></path><path d="M7 21H5a2 2 0 0 1-2-2v-2"></path><path d="M7 12h10"></path></svg>
+              <div style="font-family: var(--font-heading); font-weight: 600; font-size: 28px; line-height: 1.1;">Escanea la bolsa</div>
+              <p style="margin: 0; font-size: 14px; max-width: 34ch; color: var(--color-neutral-700); text-wrap: pretty;">Lee el código 2D (Data Matrix) de la etiqueta de Mouser, DigiKey o cualquier etiqueta ECIA.</p>
+              <button class="btn btn-primary blueprint" onClick="{{ startCam }}" style="min-height: 48px; padding-inline: 28px; font-size: 16px;">
+                <i class="corner tl"></i><i class="corner tr"></i><i class="corner bl"></i><i class="corner br"></i>
+                Abrir cámara
+              </button>
+              <sc-if value="{{ hasCamErr }}"><p style="margin: 0; font-size: 13px; color: var(--color-accent-800); max-width: 40ch;">{{ camErr }}</p></sc-if>
+            </div>
+          </sc-if>
+        </div>
+
+        <div style="display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: var(--space-2);">
+          <input class="input" value="{{ manual }}" onChange="{{ onManual }}" onKeyDown="{{ onManualKey }}" placeholder="Pega el texto o usa un lector USB…" style="min-height: 44px;">
+          <button class="btn btn-secondary" onClick="{{ submitManual }}" style="min-height: 44px;">Leer</button>
+        </div>
+        <div style="display: flex; flex-wrap: wrap; gap: var(--space-2); align-items: center; font-size: 13px; color: var(--color-neutral-700);">
+          <span>Probar con:</span>
+          <button class="btn btn-ghost" onClick="{{ demoA }}" style="color: var(--color-accent-700);">Bolsa de la foto (5.05k 0805)</button>
+          <button class="btn btn-ghost" onClick="{{ demoB }}" style="color: var(--color-accent-700);">Bolsa en stock (10k 0805)</button>
+        </div>
+      </section>
+
+      <sc-if value="{{ hasResult }}">
+        <section style="display: flex; flex-direction: column; gap: var(--space-6);">
+          <div class="card blueprint" style="padding: var(--space-6); gap: var(--space-4);">
+            <i class="corner tl"></i><i class="corner tr"></i><i class="corner bl"></i><i class="corner br"></i>
+            <div style="display: flex; justify-content: space-between; align-items: center; gap: var(--space-3); flex-wrap: wrap;">
+              <span class="card-kicker" style="color: var(--color-accent-700);">Resultado</span>
+              <sc-if value="{{ isStock }}"><span class="tag tag-accent">En stock</span></sc-if>
+              <sc-if value="{{ isEmpty }}"><span class="tag tag-neutral">Agotado</span></sc-if>
+              <sc-if value="{{ isUnknown }}"><span class="tag tag-outline" style="color: var(--color-accent-700); border-color: var(--color-accent-700);">No registrado</span></sc-if>
+            </div>
+
+            <div style="display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: var(--space-4); align-items: end;">
+              <div style="display: flex; flex-direction: column; gap: 4px; min-width: 0;">
+                <div style="font-family: var(--font-heading); font-weight: 600; font-size: 34px; line-height: 1.05;">{{ targetLabel }}</div>
+                <div style="font-size: 14px; color: var(--color-neutral-700); overflow-wrap: anywhere;">{{ mpnQuery }}</div>
+                <sc-if value="{{ hasMfr }}"><div style="font-size: 13px; color: var(--color-neutral-600);">{{ mfrLabel }}</div></sc-if>
+              </div>
+              <div style="text-align: right;">
+                <div style="font-family: var(--font-heading); font-weight: 600; font-size: 72px; line-height: 0.9; color: var(--color-accent-800);">{{ bigQty }}</div>
+                <div style="font-size: 12px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--color-neutral-700);">uds en stock</div>
+              </div>
+            </div>
+
+            <sc-if value="{{ hasMatch }}">
+              <div style="display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); border-top: 1px solid var(--color-divider);">
+                <div style="padding: var(--space-3) 0; display: flex; flex-direction: column; gap: 2px;"><span style="font-size: 11px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--color-neutral-600);">Ubicación</span><span style="font-family: var(--font-heading); font-size: 22px; font-weight: 600;">{{ matchLoc }}</span></div>
+                <div style="padding: var(--space-3) 0; display: flex; flex-direction: column; gap: 2px;"><span style="font-size: 11px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--color-neutral-600);">Encapsulado</span><span style="font-family: var(--font-heading); font-size: 22px; font-weight: 600;">{{ matchPkg }}</span></div>
+                <div style="padding: var(--space-3) 0; display: flex; flex-direction: column; gap: 2px;"><span style="font-size: 11px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--color-neutral-600);">Tolerancia</span><span style="font-family: var(--font-heading); font-size: 22px; font-weight: 600;">{{ matchTol }}</span></div>
+              </div>
+            </sc-if>
+
+            <sc-if value="{{ isUnknown }}">
+              <div style="display: flex; flex-direction: column; gap: var(--space-3); border-top: 1px solid var(--color-divider); padding-top: var(--space-4);">
+                <p style="margin: 0; font-size: 13px; color: var(--color-neutral-700); text-wrap: pretty;">El código no incluye el valor; lo he deducido de la referencia. Corrígelo si hace falta para buscar equivalentes.</p>
+                <div style="display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: var(--space-2);">
+                  <div class="field"><label>Tipo</label>
+                    <select class="input" value="{{ dType }}" onChange="{{ onDType }}">
+                      <option value="R">Resistencia</option><option value="C">Condensador</option><option value="L">Bobina</option><option value="IC">Integrado</option><option value="O">Otro</option>
+                    </select>
+                  </div>
+                  <div class="field"><label>Valor</label><input class="input" value="{{ dValue }}" onChange="{{ onDValue }}" placeholder="5.05k"></div>
+                  <div class="field"><label>Encapsulado</label><input class="input" value="{{ dPkg }}" onChange="{{ onDPkg }}" placeholder="0805"></div>
+                </div>
+              </div>
+            </sc-if>
+          </div>
+
+          <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: var(--space-4);">
+            <div class="card blueprint" style="padding: var(--space-4); gap: var(--space-3);">
+              <i class="corner tl"></i><i class="corner tr"></i><i class="corner bl"></i><i class="corner br"></i>
+              <div class="card-title">Guardar esta bolsa</div>
+              <div style="display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: var(--space-2);">
+                <div class="field"><label>Unidades</label><input class="input" type="number" min="0" value="{{ bagQty }}" onChange="{{ onBagQty }}"></div>
+                <div class="field"><label>Ubicación</label><input class="input" value="{{ loc }}" onChange="{{ onLoc }}" placeholder="Cajón A3"></div>
+              </div>
+              <button class="btn btn-primary blueprint btn-block" onClick="{{ addBag }}" style="min-height: 44px;">
+                <i class="corner tl"></i><i class="corner tr"></i><i class="corner bl"></i><i class="corner br"></i>
+                {{ addLabel }}
+              </button>
+            </div>
+            <sc-if value="{{ canTake }}">
+              <div class="card blueprint" style="padding: var(--space-4); gap: var(--space-3);">
+                <i class="corner tl"></i><i class="corner tr"></i><i class="corner bl"></i><i class="corner br"></i>
+                <div class="card-title">Retirar unidades</div>
+                <div class="field"><label>Cantidad</label><input class="input" type="number" min="1" value="{{ takeN }}" onChange="{{ onTakeN }}"></div>
+                <button class="btn btn-secondary btn-block" onClick="{{ takeOut }}" style="min-height: 44px;">Retirar del stock</button>
+              </div>
+            </sc-if>
+          </div>
+
+          <sc-if value="{{ hasItemLog }}">
+            <div style="display: flex; flex-direction: column; gap: var(--space-2);">
+              <h2 style="margin: 0; font-size: 22px;">Últimos movimientos</h2>
+              <table class="table"><tbody>
+                <sc-for list="{{ itemLog }}" as="l" hint-placeholder-count="2">
+                  <tr><td style="font-size: 13px; color: var(--color-neutral-700); white-space: nowrap;">{{ l.when }}</td><td>{{ l.kind }} · {{ l.user }}</td><td style="text-align: right; font-family: var(--font-heading); font-size: 18px; font-weight: 600; white-space: nowrap;">{{ l.delta }} <span style="font-family: var(--font-body); font-size: 12px; font-weight: 400; color: var(--color-neutral-600);">{{ l.after }}</span></td></tr>
+                </sc-for>
+              </tbody></table>
+            </div>
+          </sc-if>
+
+          <div style="display: flex; flex-direction: column; gap: var(--space-3);">
+            <div style="display: flex; align-items: baseline; justify-content: space-between; gap: var(--space-3); flex-wrap: wrap;">
+              <h2 style="margin: 0; font-size: 26px;">Equivalentes en stock</h2>
+              <span style="font-size: 13px; color: var(--color-neutral-700);">{{ simCriteria }}</span>
+            </div>
+            <sc-if value="{{ hasSimilar }}">
+              <div style="display: flex; flex-direction: column; border-top: 1px solid var(--color-divider);">
+                <sc-for list="{{ similar }}" as="s" hint-placeholder-count="3">
+                  <button onClick="{{ s.onOpen }}" style="all: unset; cursor: pointer; display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: var(--space-3); align-items: center; padding: var(--space-3) var(--space-2); border-bottom: 1px solid var(--color-divider);" style-hover="background: var(--color-accent-100);">
+                    <div style="display: flex; flex-direction: column; gap: 4px; min-width: 0;">
+                      <div style="display: flex; align-items: baseline; gap: var(--space-2); flex-wrap: wrap;">
+                        <span style="font-family: var(--font-heading); font-weight: 600; font-size: 22px;">{{ s.valueLabel }}</span>
+                        <span class="tag tag-accent">{{ s.diffLabel }}</span>
+                        <span class="tag tag-neutral">{{ s.pkgLabel }}</span>
+                      </div>
+                      <span style="font-size: 13px; color: var(--color-neutral-700); overflow-wrap: anywhere;">{{ s.mpn }} · {{ s.tol }} · {{ s.loc }}</span>
+                    </div>
+                    <div style="text-align: right;">
+                      <div style="font-family: var(--font-heading); font-weight: 600; font-size: 28px; line-height: 1; color: var(--color-accent-800);">{{ s.qty }}</div>
+                      <div style="font-size: 11px; color: var(--color-neutral-600);">uds</div>
+                    </div>
+                  </button>
+                </sc-for>
+              </div>
+            </sc-if>
+            <sc-if value="{{ noSimilar }}">
+              <p style="margin: 0; padding: var(--space-4) 0; border-top: 1px solid var(--color-divider); font-size: 14px; color: var(--color-neutral-700);">{{ noSimilarText }}</p>
+            </sc-if>
+          </div>
+
+          <sc-if value="{{ hasFields }}">
+            <details style="border-top: 1px solid var(--color-divider); padding-top: var(--space-3);">
+              <summary style="cursor: pointer; font-size: 13px; color: var(--color-accent-700);">Datos leídos de la etiqueta</summary>
+              <table class="table" style="margin-top: var(--space-2);">
+                <tbody>
+                  <sc-for list="{{ fieldRows }}" as="f" hint-placeholder-count="4">
+                    <tr><td style="width: 40%; color: var(--color-neutral-700); font-size: 13px;">{{ f.label }} <span style="opacity: 0.6;">({{ f.id }})</span></td><td style="overflow-wrap: anywhere;">{{ f.value }}</td></tr>
+                  </sc-for>
+                </tbody>
+              </table>
+              <pre style="margin: var(--space-3) 0 0; padding: var(--space-3); border: 1px solid var(--color-divider); font-size: 12px; white-space: pre-wrap; overflow-wrap: anywhere; color: var(--color-neutral-800);">{{ rawDisplay }}</pre>
+            </details>
+          </sc-if>
+        </section>
+      </sc-if>
+    </sc-if>
+
+    <sc-if value="{{ isInvTab }}">
+      <section style="display: flex; flex-direction: column; gap: var(--space-4);">
+        <div style="display: flex; align-items: baseline; justify-content: space-between; gap: var(--space-3); flex-wrap: wrap;">
+          <h1 style="margin: 0; font-size: 34px;">Inventario</h1>
+          <span style="font-size: 14px; color: var(--color-neutral-700);">{{ invCount }} referencias · {{ invUnits }} uds</span>
+        </div>
+        <div style="display: grid; grid-template-columns: minmax(0, 1fr) auto auto; gap: var(--space-2);">
+          <input class="input" value="{{ search }}" onChange="{{ onSearch }}" placeholder="Buscar: 10k, 0603, GRM, A3…" style="min-height: 44px;">
+          <button class="btn btn-secondary" onClick="{{ pickFile }}" style="min-height: 44px;">Importar CSV</button>
+          <button class="btn btn-secondary" onClick="{{ exportCsv }}" style="min-height: 44px;">Exportar a Excel</button>
+          <input type="file" accept=".csv,text/csv" ref="{{ fileRef }}" onChange="{{ onImport }}" style="display: none;">
+        </div>
+        <div class="card blueprint" style="padding: var(--space-4); gap: var(--space-3);">
+          <i class="corner tl"></i><i class="corner tr"></i><i class="corner bl"></i><i class="corner br"></i>
+          <div style="display: flex; justify-content: space-between; align-items: baseline; gap: var(--space-3); flex-wrap: wrap;">
+            <div class="card-title" style="font-size: 20px;">Hoja de cálculo (Google Sheets)</div>
+            <span class="tag tag-accent">{{ syncLabel }}</span>
+          </div>
+          <p class="card-body" style="text-wrap: pretty;">Todo el inventario y el historial se guardan en una hoja compartida del laboratorio (se puede abrir o descargar como Excel). Sin cobertura la app sigue funcionando: guarda en el móvil y sube los cambios cuando vuelve la conexión.</p>
+          <div style="display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: var(--space-2);">
+            <input class="input" value="{{ urlDraft }}" onChange="{{ onUrl }}" placeholder="https://script.google.com/macros/s/…/exec" style="min-height: 44px;">
+            <button class="btn btn-primary blueprint" onClick="{{ connect }}" style="min-height: 44px;"><i class="corner tl"></i><i class="corner tr"></i><i class="corner bl"></i><i class="corner br"></i>Conectar</button>
+          </div>
+          <sc-if value="{{ isConnected }}">
+            <div style="display: flex; gap: var(--space-3); align-items: center; flex-wrap: wrap; font-size: 13px; color: var(--color-neutral-700);">
+              <span>{{ syncDetail }}</span>
+              <button class="btn btn-ghost" onClick="{{ resync }}" style="color: var(--color-accent-700);">Sincronizar ahora</button>
+            </div>
+          </sc-if>
+          <details>
+            <summary style="cursor: pointer; font-size: 13px; color: var(--color-accent-700);">Cómo conectarla (5 min, una sola vez)</summary>
+            <ol style="margin: var(--space-3) 0 0; padding-left: 20px; font-size: 14px; line-height: 1.6; display: flex; flex-direction: column; gap: 4px;">
+              <li>Crea una hoja nueva en Google Sheets (p. ej. «Inventario PCB»).</li>
+              <li>Menú <b>Extensiones › Apps Script</b>. Borra lo que haya y pega el código: <button class="btn btn-ghost" onClick="{{ copyScript }}" style="color: var(--color-accent-700); display: inline-flex;">Copiar código</button></li>
+              <li>Guarda y pulsa <b>Implementar › Nueva implementación › Aplicación web</b>. Ejecutar como: <b>Yo</b>; acceso: <b>Cualquier usuario</b>.</li>
+              <li>Autoriza los permisos y copia la URL que acaba en <b>/exec</b>.</li>
+              <li>Pégala arriba y pulsa Conectar. Las pestañas «Inventario» e «Historial» se crean solas. Comparte esa URL con el resto del laboratorio.</li>
+            </ol>
+          </details>
+        </div>
+        <div class="field" style="max-width: 280px;"><label>Tu nombre (para el historial)</label><input class="input" value="{{ user }}" onChange="{{ onUser }}" placeholder="p. ej. Laura"></div>
+        <sc-if value="{{ invEmpty }}">
+          <div class="card blueprint" style="padding: var(--space-6); gap: var(--space-3); align-items: flex-start;">
+            <i class="corner tl"></i><i class="corner tr"></i><i class="corner bl"></i><i class="corner br"></i>
+            <div class="card-title" style="font-size: 22px;">Inventario vacío</div>
+            <p class="card-body" style="text-wrap: pretty;">Escanea una bolsa y pulsa «Dar de alta», o importa un CSV. Para probar, carga unas referencias de ejemplo.</p>
+            <button class="btn btn-secondary" onClick="{{ loadSeed }}">Cargar datos de ejemplo</button>
+          </div>
+        </sc-if>
+        <div style="display: flex; flex-direction: column; border-top: 1px solid var(--color-divider);">
+          <sc-for list="{{ invRows }}" as="r" hint-placeholder-count="8">
+            <button onClick="{{ r.onOpen }}" style="all: unset; cursor: pointer; display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: var(--space-3); align-items: center; padding: var(--space-3) var(--space-2); border-bottom: 1px solid var(--color-divider);" style-hover="background: var(--color-accent-100);">
+              <div style="display: flex; flex-direction: column; gap: 4px; min-width: 0;">
+                <div style="display: flex; align-items: baseline; gap: var(--space-2); flex-wrap: wrap;">
+                  <span style="font-family: var(--font-heading); font-weight: 600; font-size: 20px;">{{ r.valueLabel }}</span>
+                  <span class="tag tag-neutral">{{ r.pkg }}</span>
+                  <sc-if value="{{ r.zero }}"><span class="tag tag-outline" style="color: var(--color-accent-700); border-color: var(--color-accent-700);">Agotado</span></sc-if>
+                </div>
+                <span style="font-size: 13px; color: var(--color-neutral-700); overflow-wrap: anywhere;">{{ r.mpn }} · {{ r.loc }}</span>
+              </div>
+              <div style="font-family: var(--font-heading); font-weight: 600; font-size: 26px; color: var(--color-accent-800);">{{ r.qty }}</div>
+            </button>
+          </sc-for>
+        </div>
+        <sc-if value="{{ hasLog }}">
+          <div style="display: flex; flex-direction: column; gap: var(--space-2); margin-top: var(--space-4);">
+            <h2 style="margin: 0; font-size: 26px;">Historial de movimientos</h2>
+            <div style="overflow-x: auto;">
+              <table class="table">
+                <thead><tr><th>Fecha</th><th>Usuario</th><th>Movimiento</th><th style="text-align: right;">Uds</th></tr></thead>
+                <tbody>
+                  <sc-for list="{{ logRows }}" as="l" hint-placeholder-count="4">
+                    <tr><td style="font-size: 13px; color: var(--color-neutral-700); white-space: nowrap;">{{ l.when }}</td><td>{{ l.user }}</td><td style="overflow-wrap: anywhere;">{{ l.kind }} · {{ l.mpn }}</td><td style="text-align: right; white-space: nowrap; font-family: var(--font-heading); font-size: 18px; font-weight: 600;">{{ l.delta }} <span style="font-family: var(--font-body); font-size: 12px; font-weight: 400; color: var(--color-neutral-600);">{{ l.after }}</span></td></tr>
+                  </sc-for>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </sc-if>
+        <p style="margin: 0; font-size: 12px; color: var(--color-neutral-600); text-wrap: pretty;">CSV con columnas: referencia, fabricante, tipo, valor, encapsulado, tolerancia, cantidad, ubicacion. Los datos se guardan en este navegador.</p>
+      </section>
+    </sc-if>
+  </main>
+
+  <sc-if value="{{ hasToast }}">
+    <div style="position: fixed; left: 50%; bottom: 24px; transform: translateX(-50%); padding: 12px 20px; background: var(--color-accent-900); color: var(--color-bg); font-size: 14px; box-shadow: var(--shadow-lg); max-width: calc(100% - 32px);">{{ toast }}</div>
+  </sc-if>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;tolerancePct&quot;:{&quot;editor&quot;:&quot;range&quot;,&quot;default&quot;:5,&quot;min&quot;:0,&quot;max&quot;:20,&quot;step&quot;:0.5,&quot;unit&quot;:&quot;%&quot;,&quot;tsType&quot;:&quot;number&quot;,&quot;section&quot;:&quot;Equivalentes&quot;},&quot;samePackage&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:false,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;Equivalentes&quot;},&quot;maxSimilar&quot;:{&quot;editor&quot;:&quot;int&quot;,&quot;default&quot;:6,&quot;min&quot;:1,&quot;max&quot;:20,&quot;tsType&quot;:&quot;number&quot;,&quot;section&quot;:&quot;Equivalentes&quot;}}">
+const KEY = 'pcbinv.v1';
+const SEED = [
+  ['RC0805FR-075K1L','Yageo','R',5100,'0805','1%',180,'A3'],
+  ['ERJ-6ENF4991V','Panasonic','R',4990,'0805','1%',95,'A3'],
+  ['ERA-6AEB502V','Panasonic','R',5000,'0805','0.1%',0,'A3'],
+  ['RC0805JR-074K7L','Yageo','R',4700,'0805','5%',60,'A3'],
+  ['CRCW06035K11FKEA','Vishay','R',5110,'0603','1%',300,'A2'],
+  ['RC0805FR-0710KL','Yageo','R',10000,'0805','1%',420,'A4'],
+  ['RC1206FR-0710KL','Yageo','R',10000,'1206','1%',40,'B1'],
+  ['RC0805FR-071KL','Yageo','R',1000,'0805','1%',500,'A2'],
+  ['RC0603FR-07100RL','Yageo','R',100,'0603','1%',250,'A1'],
+  ['GRM21BR71H104KA01L','Murata','C',100e-9,'0805','10%',600,'C1'],
+  ['CL10B104KB8NNNC','Samsung','C',100e-9,'0603','10%',300,'C1'],
+  ['GRM188R71H103KA01D','Murata','C',10e-9,'0603','10%',150,'C1'],
+  ['CL21A106KAYNNNE','Samsung','C',10e-6,'0805','10%',80,'C2'],
+  ['LM358DR','Texas Instruments','IC',null,'SOIC-8','—',25,'D1']
+].map(r => ({ mpn: r[0], mfr: r[1], type: r[2], value: r[3], pkg: r[4], tol: r[5], qty: r[6], loc: r[7] }));
+const LOGKEY = 'pcbinv.log.v1', USERKEY = 'pcbinv.user', SHEETKEY = 'pcbinv.sheet', PENDKEY = 'pcbinv.pending';
+const toRemote = i => ({ mpn: i.mpn, mfr: i.mfr || '', type: i.type || '', value: i.value != null ? short(i.value, i.type) : '', pkg: i.pkg || '', tol: i.tol || '', qty: i.qty || 0, loc: i.loc || '' });
+const DEMO_A = '>[)>06<GS>KCC7565<GS>14K027<GS>1PPFC-W0805LF-03-5051-B<GS>Q40<GS>11K057316233<GS>4LUS<GS>1VTT Electronics';
+const DEMO_A_OLD = '[)>\x1e06\x1dKCC7565\x1d14K027\x1d1PPFC-W0805LF-03-5051-B\x1dQ40\x1d11K057316233\x1d4LUS\x1d1VTT Electronics\x1e\x04';
+const DEMO_B = '>[)>06<GS>KCC7565<GS>14K012<GS>1PRC0805FR-0710KL<GS>Q100<GS>11K057316233<GS>4LTW<GS>1VYageo';
+const FIELD_LABELS = { '1P':'Ref. fabricante', '1V':'Fabricante', 'Q':'Cantidad', 'P':'Ref. cliente/distribuidor', 'K':'Pedido', '14K':'Línea', '11K':'Factura', '4L':'País', '1T':'Lote', '10D':'Fecha', '9D':'Fecha', '12Z':'—', '13Z':'—', '20Z':'—' };
+const IDS = ['14K','11K','12K','10D','11Z','12Z','13Z','20Z','1P','1T','4L','1V','9D','K','P','Q','D','T','V','L'];
+const TYPES = { R: 'Resistencia', C: 'Condensador', L: 'Bobina', IC: 'Integrado', O: 'Otro' };
+const MULT = { p:1e-12, n:1e-9, u:1e-6, 'µ':1e-6, m:1e-3, k:1e3, K:1e3, M:1e6, G:1e9, r:1, R:1 };
+
+const norm = s => String(s || '').toUpperCase().replace(/[^A-Z0-9]/g, '');
+const n4 = x => String(parseFloat(x.toPrecision(4)));
+function fmt(v, t) {
+  if (v == null || isNaN(v)) return '';
+  if (t === 'R') return v >= 1e6 ? n4(v/1e6)+' MΩ' : v >= 1e3 ? n4(v/1e3)+' kΩ' : n4(v)+' Ω';
+  if (t === 'C') return v >= 0.999e-6 ? n4(v*1e6)+' µF' : v >= 0.999e-9 ? n4(v*1e9)+' nF' : n4(v*1e12)+' pF';
+  if (t === 'L') return v >= 0.999e-3 ? n4(v*1e3)+' mH' : v >= 0.999e-6 ? n4(v*1e6)+' µH' : n4(v*1e9)+' nH';
+  return String(v);
+}
+const short = (v, t) => fmt(v, t).replace(' kΩ','k').replace(' MΩ','M').replace(' Ω','').replace(' µF','u').replace(' nF','n').replace(' pF','p').replace(' mH','m').replace(' µH','u').replace(' nH','n');
+function parseValue(str, t) {
+  if (str == null) return null;
+  let s = String(str).trim().replace(',', '.').replace(/\s+/g, '').replace(/(ohms?|Ω|ω|F|H)$/i, '');
+  if (!s) return null;
+  const m = s.match(/^(\d*\.?\d*)([pnuµmkKMGrR])(\d*)$/);
+  if (m && (m[1] || m[3])) {
+    const mult = (t === 'R' && m[2] === 'm') ? 1e6 : MULT[m[2]];
+    return parseFloat((m[1] || '0') + (m[3] ? '.' + m[3] : '')) * mult;
+  }
+  return /^\d*\.?\d+(e-?\d+)?$/i.test(s) ? parseFloat(s) : null;
+}
+function parseRaw(raw) {
+  let s = String(raw || '').replace(/<GS>|\{GS\}|\^\]|␝/g, '\x1d').replace(/<RS>|␞/g, '\x1e').replace(/<EOT>|␄/g, '\x04').replace(/\r?\n/g, '\x1d');
+  const hi = s.indexOf('[)>');
+  if (hi < 0) return { ecia: false, fields: {}, mpn: s.trim() };
+  s = s.slice(hi).replace(/^\[\)>\x1e?06/, '[)>\x1d');
+  const fields = {};
+  s.split(/[\x1d\x1e\x04]/).filter(Boolean).forEach(p => {
+    if (p.startsWith('[)>') || p === '06') return;
+    const id = IDS.find(i => p.startsWith(i));
+    if (id && fields[id] == null) fields[id] = p.slice(id.length).trim();
+  });
+  return { ecia: true, fields, mpn: fields['1P'] || fields.P || '' };
+}
+function detect(mpn) {
+  let u = String(mpn || '').toUpperCase();
+  let pkg = (u.match(/(0201|0402|0603|0805|1206|1210|2010|2512)/) || [])[1] || '';
+  const mur = u.match(/^G[RC]M(\d{2})/);
+  if (!pkg && mur) pkg = { '03':'0201', '15':'0402', '18':'0603', '21':'0805', '31':'1206', '32':'1210' }[mur[1]] || '';
+  let type = '';
+  if (/^(GRM|GCM|CL\d|C\d{4}|CC\d|KGM|EMK|TMK|GRT|CGA)/.test(u)) type = 'C';
+  else if (/^(RC|ERJ|ERA|CRCW|PFC|RN|RT|RG|CRG|MCR|TNPW|WR|RMCF|AC\d)/.test(u)) type = 'R';
+  let rest = pkg ? u.replace(pkg, ' ') : u;
+  if (/^RC/.test(u)) rest = rest.replace(/-(07|10|13)(?=\d)/, '-');
+  let value = null;
+  if (type === 'R') {
+    let m = rest.match(/(\d{1,3})([RKM])(\d{0,3})/);
+    if (m) value = parseFloat(m[1] + (m[3] ? '.' + m[3] : '')) * ({ R:1, K:1e3, M:1e6 })[m[2]];
+    else if ((m = rest.match(/(?:^|\D)(\d{3})(\d)(?:\D|$)/))) value = parseInt(m[1], 10) * Math.pow(10, parseInt(m[2], 10));
+  } else if (type === 'C') {
+    const m = rest.match(/(\d{2})(\d)[JKMZ]/);
+    if (m) value = parseInt(m[1], 10) * Math.pow(10, parseInt(m[2], 10)) * 1e-12;
+  }
+  return { type, value, pkg };
+}
+function loadInv() {
+  try { const v = JSON.parse(localStorage.getItem(KEY)); if (Array.isArray(v)) return v; } catch (e) {}
+  return [];
+}
+function loadLS(k, d) { try { const v = JSON.parse(localStorage.getItem(k)); return v == null ? d : v; } catch (e) { return d; } }
+function when(t) { const d = new Date(t); return d.toLocaleDateString('es-ES', { day: '2-digit', month: '2-digit' }) + ' ' + d.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' }); }
+let zxingP = null;
+function loadZxing() {
+  if (window.ZXing) return Promise.resolve();
+  if (!zxingP) zxingP = new Promise((res, rej) => {
+    const s = document.createElement('script');
+    s.src = 'https://unpkg.com/@zxing/library@0.21.3/umd/index.min.js';
+    s.onload = res; s.onerror = () => rej(new Error('No se pudo cargar el lector'));
+    document.head.appendChild(s);
+  });
+  return zxingP;
+}
+
+class Component extends DCLogic {
+  videoRef = React.createRef();
+  fileRef = React.createRef();
+  state = { tab: 'scan', inv: loadInv(), camOn: false, camErr: '', raw: '', fields: {}, hasResult: false,
+    mpnQuery: '', bagQty: 0, dType: 'R', dValue: '', dPkg: '', loc: '', takeN: 1, manual: '', search: '', toast: '', log: loadLS(LOGKEY, []), user: loadLS(USERKEY, ''),
+    sheetUrl: loadLS(SHEETKEY, ''), urlDraft: loadLS(SHEETKEY, ''), sync: 'off', syncMsg: '', lastSync: 0, online: navigator.onLine, nPending: loadLS(PENDKEY, []).length };
+  pending = loadLS(PENDKEY, []);
+
+  componentDidMount() {
+    if ('serviceWorker' in navigator && location.protocol.startsWith('http')) navigator.serviceWorker.register('sw.js').catch(() => {});
+    this.onOnline = () => { this.setState({ online: true }); this.flush(); };
+    this.onOffline = () => this.setState({ online: false });
+    window.addEventListener('online', this.onOnline); window.addEventListener('offline', this.onOffline);
+    this.retry = setInterval(() => { if (this.pending.length && navigator.onLine) this.flush(); }, 30000);
+    if (this.state.sheetUrl && navigator.onLine) this.flush();
+    const q = new URLSearchParams(location.search);
+    if (q.get('vista') === 'inventario') this.setState({ tab: 'inv' });
+    else if (q.has('escanear')) setTimeout(() => this.startCam(), 300);
+  }
+  componentWillUnmount() {
+    this.stopCam(); clearInterval(this.retry);
+    window.removeEventListener('online', this.onOnline); window.removeEventListener('offline', this.onOffline);
+  }
+  setPending(p) { this.pending = p; this.setState({ nPending: p.length }); try { localStorage.setItem(PENDKEY, JSON.stringify(p)); } catch (e) {} }
+  applyRemote(j) {
+    if (!j || !j.ok) throw new Error((j && j.error) || 'Respuesta no válida');
+    const inv = j.items.map(i => { const type = i.type || detect(i.mpn).type || 'O'; return { ...i, type, value: parseValue(i.value, type) }; });
+    try { localStorage.setItem(KEY, JSON.stringify(inv)); localStorage.setItem(LOGKEY, JSON.stringify(j.log)); } catch (e) {}
+    this.setState({ inv, log: j.log, sync: 'ok', syncMsg: '', lastSync: Date.now() });
+  }
+  push(op) {
+    if (!this.state.sheetUrl) return;
+    this.setPending([...this.pending, { ...op, user: this.state.user || '—' }]);
+    this.flush();
+  }
+  async flush() {
+    const url = this.state.sheetUrl;
+    if (!url || this.flushing) return;
+    if (!navigator.onLine) { this.setState({ sync: 'offline' }); return; }
+    this.flushing = true;
+    this.setState({ sync: 'syncing' });
+    try {
+      let j = null;
+      while (this.pending.length) {
+        const r = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify(this.pending[0]) });
+        j = await r.json();
+        if (!j.ok) throw new Error(j.error);
+        this.setPending(this.pending.slice(1));
+      }
+      if (!j) j = await (await fetch(url)).json();
+      this.applyRemote(j);
+    } catch (e) {
+      if (!navigator.onLine || e instanceof TypeError) { this.setState({ sync: 'offline' }); this.flushing = false; return; }
+      this.setState({ sync: 'error', syncMsg: (e.message || 'Error de red') + (this.pending.length ? ` · ${this.pending.length} cambios pendientes` : '') });
+    }
+    this.flushing = false;
+  }
+  connect = () => {
+    const u = this.state.urlDraft.trim();
+    try { localStorage.setItem(SHEETKEY, JSON.stringify(u)); } catch (e) {}
+    this.setState({ sheetUrl: u, sync: u ? 'syncing' : 'off' }, () => u && this.flush());
+  };
+  copyScript = () => fetch('apps-script.gs').then(r => r.text()).then(t => navigator.clipboard.writeText(t)).then(() => this.flash('Código copiado')).catch(() => this.flash('No se pudo copiar; abre apps-script.gs'));
+
+
+  saveInv(inv, toast, entry) {
+    try { localStorage.setItem(KEY, JSON.stringify(inv)); } catch (e) {}
+    this.setState({ inv });
+    if (entry) {
+      const log = [{ t: Date.now(), user: this.state.user || '—', ...entry }, ...this.state.log].slice(0, 500);
+      try { localStorage.setItem(LOGKEY, JSON.stringify(log)); } catch (e) {}
+      this.setState({ log });
+    }
+    if (toast) this.flash(toast);
+  }
+  flash(msg) {
+    clearTimeout(this.toastT);
+    this.setState({ toast: msg });
+    this.toastT = setTimeout(() => this.setState({ toast: '' }), 2400);
+  }
+  find(mpn) { const q = norm(mpn); return q ? this.state.inv.find(i => norm(i.mpn) === q) : null; }
+
+  handleRaw(raw) {
+    const p = parseRaw(raw);
+    const mpn = p.mpn;
+    const match = this.find(mpn);
+    const d = match ? { type: match.type, value: match.value, pkg: match.pkg } : detect(mpn);
+    this.setState({ raw, fields: p.fields, hasResult: !!mpn, mpnQuery: mpn, bagQty: parseInt(p.fields.Q, 10) || 0,
+      dType: d.type || 'R', dValue: d.value != null ? short(d.value, d.type) : '', dPkg: d.pkg || '',
+      loc: match ? match.loc : '', takeN: 1, tab: 'scan', manual: '' });
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  }
+
+  startCam = async () => {
+    if (this.state.camOn) return;
+    this.setState({ camOn: true, camErr: '' });
+    const v = this.videoRef.current;
+    v.muted = true; v.setAttribute('playsinline', '');
+    try {
+      let native = false;
+      if ('BarcodeDetector' in window) { try { native = (await BarcodeDetector.getSupportedFormats()).includes('data_matrix'); } catch (e) {} }
+      if (native) {
+        this.stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } });
+        v.srcObject = this.stream; await v.play();
+        const det = new BarcodeDetector({ formats: ['data_matrix', 'qr_code'] });
+        const tick = async () => {
+          if (!this.state.camOn) return;
+          try { const r = await det.detect(v); if (r.length) { this.stopCam(); this.handleRaw(r[0].rawValue); return; } } catch (e) {}
+          this.timer = setTimeout(tick, 250);
+        };
+        tick();
+      } else {
+        await loadZxing();
+        const Z = window.ZXing, hints = new Map();
+        hints.set(Z.DecodeHintType.POSSIBLE_FORMATS, [Z.BarcodeFormat.DATA_MATRIX, Z.BarcodeFormat.QR_CODE]);
+        hints.set(Z.DecodeHintType.TRY_HARDER, true);
+        this.reader = new Z.BrowserMultiFormatReader(hints);
+        await this.reader.decodeFromConstraints({ video: { facingMode: 'environment' } }, v, res => {
+          if (res) { const t = res.getText(); this.stopCam(); this.handleRaw(t); }
+        });
+      }
+    } catch (e) {
+      this.stopCam();
+      this.setState({ camErr: 'No se pudo abrir la cámara (' + (e.name || e.message) + '). La web debe abrirse por HTTPS; mientras, usa el campo de texto.' });
+    }
+  };
+  stopCam = () => {
+    clearTimeout(this.timer);
+    if (this.stream) { this.stream.getTracks().forEach(t => t.stop()); this.stream = null; }
+    if (this.reader) { try { this.reader.reset(); } catch (e) {} this.reader = null; }
+    const v = this.videoRef.current; if (v) v.srcObject = null;
+    if (this.state.camOn) this.setState({ camOn: false });
+  };
+
+  addBag = () => {
+    const s = this.state, n = Math.max(0, parseInt(s.bagQty, 10) || 0);
+    if (!s.mpnQuery.trim()) return;
+    const match = this.find(s.mpnQuery);
+    let inv;
+    if (match) inv = s.inv.map(i => i === match ? { ...i, qty: i.qty + n, loc: s.loc || i.loc } : i);
+    else inv = [{ mpn: s.mpnQuery.trim(), mfr: s.fields['1V'] || '', type: s.dType, value: parseValue(s.dValue, s.dType), pkg: s.dPkg, tol: '', qty: n, loc: s.loc || '—' }, ...s.inv];
+    const base = match || inv[0];
+    this.push({ op: 'add', kind: match ? 'Entrada' : 'Alta', item: { ...toRemote(base), qty: n, loc: s.loc || base.loc } });
+    this.saveInv(inv, match ? `+${n} uds añadidas` : 'Referencia dada de alta', { mpn: s.mpnQuery.trim(), delta: n, after: (match ? match.qty : 0) + n, kind: match ? 'Entrada' : 'Alta' });
+  };
+  takeOut = () => {
+    const s = this.state, n = Math.max(1, parseInt(s.takeN, 10) || 1), match = this.find(s.mpnQuery);
+    if (!match) return;
+    const left = Math.max(0, match.qty - n);
+    this.push({ op: 'take', kind: 'Salida', mpn: match.mpn, n });
+    this.saveInv(s.inv.map(i => i === match ? { ...i, qty: left } : i), `Retiradas ${match.qty - left} uds · quedan ${left}`, { mpn: match.mpn, delta: left - match.qty, after: left, kind: 'Salida' });
+  };
+  exportCsv = () => {
+    const rows = [['referencia','fabricante','tipo','valor','encapsulado','tolerancia','cantidad','ubicacion']]
+      .concat(this.state.inv.map(i => [i.mpn, i.mfr, i.type, i.value != null ? short(i.value, i.type) : '', i.pkg, i.tol, i.qty, i.loc]));
+    const csv = rows.map(r => r.map(c => /[;"\n]/.test(String(c ?? '')) ? '"' + String(c).replace(/"/g, '""') + '"' : (c ?? '')).join(';')).join('\n');
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(new Blob(['\ufeff' + csv], { type: 'text/csv' }));
+    a.download = 'inventario-pcb.csv'; a.click();
+  };
+  onImport = e => {
+    const f = e.target.files && e.target.files[0]; if (!f) return;
+    f.text().then(t => {
+      const lines = t.replace(/^\ufeff/, '').split(/\r?\n/).filter(l => l.trim());
+      if (lines.length < 2) return this.flash('CSV vacío');
+      const sep = lines[0].includes(';') ? ';' : ',';
+      const head = lines[0].split(sep).map(h => h.trim().toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, ''));
+      const ix = (...ks) => head.findIndex(h => ks.some(k => h.startsWith(k)));
+      const c = { mpn: ix('ref','mpn','part'), mfr: ix('fab','manuf'), type: ix('tipo','type'), value: ix('valor','value'), pkg: ix('enc','pack'), tol: ix('tol'), qty: ix('cant','qty','stock'), loc: ix('ubic','loc') };
+      const items = lines.slice(1).map(l => {
+        const p = l.split(sep).map(x => x.trim().replace(/^"|"$/g, ''));
+        const g = k => c[k] >= 0 ? (p[c[k]] || '') : '';
+        const tl = g('type').toLowerCase();
+        const type = tl.startsWith('r') ? 'R' : tl.startsWith('c') ? 'C' : tl.startsWith('b') || tl === 'l' ? 'L' : tl.startsWith('i') ? 'IC' : (detect(g('mpn')).type || 'O');
+        return { mpn: g('mpn'), mfr: g('mfr'), type, value: parseValue(g('value'), type), pkg: g('pkg'), tol: g('tol'), qty: parseInt(g('qty'), 10) || 0, loc: g('loc') || '—' };
+      }).filter(i => i.mpn);
+      const keys = new Set(items.map(i => norm(i.mpn)));
+      this.push({ op: 'import', kind: 'Importación', name: f.name, items: items.map(toRemote) });
+      this.saveInv([...items, ...this.state.inv.filter(i => !keys.has(norm(i.mpn)))], `${items.length} referencias importadas`, { mpn: f.name, delta: items.length, after: null, kind: 'Importación' });
+    });
+    e.target.value = '';
+  };
+
+  renderVals() {
+    const s = this.state, inv = s.inv;
+    const match = this.find(s.mpnQuery);
+    const target = match ? { type: match.type, value: match.value, pkg: match.pkg } : { type: s.dType, value: parseValue(s.dValue, s.dType), pkg: s.dPkg.trim() };
+    const tolPct = this.props.tolerancePct ?? 5, tol = tolPct / 100;
+    const samePkg = this.props.samePackage ?? false;
+    const maxSim = this.props.maxSimilar ?? 6;
+    const hasValue = target.value > 0 && ['R', 'C', 'L'].includes(target.type);
+    let similar = [];
+    if (hasValue) {
+      similar = inv.filter(i => i !== match && i.type === target.type && i.qty > 0 && i.value > 0)
+        .map(i => ({ i, r: (i.value - target.value) / target.value, same: !target.pkg || i.pkg === target.pkg }))
+        .filter(x => Math.abs(x.r) <= tol + 1e-9 && (!samePkg || x.same))
+        .sort((a, b) => (Math.abs(a.r) + (a.same ? 0 : tol)) - (Math.abs(b.r) + (b.same ? 0 : tol)))
+        .slice(0, maxSim)
+        .map(({ i, r, same }) => ({
+          valueLabel: fmt(i.value, i.type), mpn: i.mpn, tol: i.tol || '—', loc: i.loc, qty: i.qty,
+          diffLabel: Math.abs(r) < 1e-6 ? 'Mismo valor' : (r > 0 ? '+' : '') + (r * 100).toFixed(1) + '%',
+          pkgLabel: same && target.pkg ? i.pkg + ' · igual' : i.pkg,
+          onOpen: () => this.handleRaw(i.mpn)
+        }));
+    }
+    const status = !match ? 'unknown' : match.qty > 0 ? 'stock' : 'empty';
+    const q = s.search.trim().toLowerCase();
+    const invRows = inv.filter(i => !q || [i.mpn, i.mfr, fmt(i.value, i.type), short(i.value, i.type), i.pkg, i.loc, TYPES[i.type]].join(' ').toLowerCase().includes(q))
+      .map(i => ({ mpn: i.mpn, pkg: i.pkg || '—', loc: i.loc, qty: i.qty, zero: i.qty <= 0,
+        valueLabel: i.value != null ? fmt(i.value, i.type) : (TYPES[i.type] || 'Componente'), onOpen: () => this.handleRaw(i.mpn) }));
+    const raw = s.raw || '';
+    const tLabel = (hasValue ? fmt(target.value, target.type) : (TYPES[target.type] || 'Componente')) + (target.pkg ? ' · ' + target.pkg : '');
+    const set = k => e => this.setState({ [k]: e.target.value });
+    const logRow = l => ({ when: when(l.t), user: l.user, kind: l.kind, mpn: l.mpn, delta: l.delta > 0 ? '+' + l.delta : String(l.delta), after: l.after == null ? '' : '→ ' + l.after });
+    const itemLog = match ? s.log.filter(l => norm(l.mpn) === norm(match.mpn)).slice(0, 5).map(logRow) : [];
+    return {
+      isScanTab: s.tab === 'scan', isInvTab: s.tab === 'inv',
+      goScan: () => this.setState({ tab: 'scan' }), goInv: () => { this.stopCam(); this.setState({ tab: 'inv' }); },
+      invCount: inv.length, invUnits: inv.reduce((a, i) => a + (i.qty || 0), 0),
+      videoRef: this.videoRef, fileRef: this.fileRef,
+      camOn: s.camOn, camOff: !s.camOn, camErr: s.camErr, hasCamErr: !!s.camErr,
+      startCam: this.startCam, stopCam: this.stopCam,
+      manual: s.manual, onManual: set('manual'),
+      onManualKey: e => { if (e.key === 'Enter' && s.manual.trim()) this.handleRaw(s.manual); },
+      submitManual: () => s.manual.trim() && this.handleRaw(s.manual),
+      demoA: () => this.handleRaw(DEMO_A), demoB: () => this.handleRaw(DEMO_B),
+      hasResult: s.hasResult, isStock: status === 'stock', isEmpty: status === 'empty', isUnknown: status === 'unknown',
+      hasMatch: !!match, matchLoc: match ? match.loc || '—' : '', matchPkg: match ? match.pkg || '—' : '', matchTol: match ? match.tol || '—' : '',
+      targetLabel: tLabel, mpnQuery: s.mpnQuery,
+      hasMfr: !!(match ? match.mfr : s.fields['1V']), mfrLabel: match ? match.mfr : s.fields['1V'] || '',
+      bigQty: match ? match.qty : 0,
+      dType: s.dType, dValue: s.dValue, dPkg: s.dPkg,
+      onDType: set('dType'), onDValue: set('dValue'), onDPkg: set('dPkg'),
+      bagQty: s.bagQty, onBagQty: set('bagQty'), loc: s.loc, onLoc: set('loc'),
+      addBag: this.addBag, addLabel: match ? `Añadir ${parseInt(s.bagQty, 10) || 0} uds al stock` : `Dar de alta con ${parseInt(s.bagQty, 10) || 0} uds`,
+      canTake: !!match && match.qty > 0, takeN: s.takeN, onTakeN: set('takeN'), takeOut: this.takeOut,
+      similar, hasSimilar: similar.length > 0, noSimilar: similar.length === 0,
+      noSimilarText: hasValue ? `Nada en stock dentro de ±${tolPct}%.` : 'Indica tipo y valor para buscar equivalentes.',
+      simCriteria: `Mismo tipo · ±${tolPct}%` + (samePkg ? ' · mismo encapsulado' : ''),
+      hasFields: Object.keys(s.fields).length > 0,
+      fieldRows: Object.keys(s.fields).map(id => ({ id, label: FIELD_LABELS[id] || id, value: s.fields[id] })),
+      rawDisplay: raw.replace(/\x1d/g, '⟨GS⟩').replace(/\x1e/g, '⟨RS⟩').replace(/\x04/g, '⟨EOT⟩'),
+      search: s.search, onSearch: set('search'), invRows,
+      pickFile: () => this.fileRef.current && this.fileRef.current.click(), onImport: this.onImport, exportCsv: this.exportCsv,
+      hasToast: !!s.toast, toast: s.toast,
+      invEmpty: inv.length === 0, invHas: inv.length > 0,
+      loadSeed: () => (this.push({ op: 'import', kind: 'Importación', name: 'Ejemplo', items: SEED.map(toRemote) }), this.saveInv(SEED.map(x => ({ ...x })).concat(inv), 'Datos de ejemplo cargados', { mpn: 'Ejemplo', delta: SEED.length, after: null, kind: 'Importación' })),
+      urlDraft: s.urlDraft, onUrl: set('urlDraft'), connect: this.connect, copyScript: this.copyScript, resync: () => this.flush(),
+      isConnected: !!s.sheetUrl, notConnected: !s.sheetUrl, syncErr: s.sync === 'error',
+      syncLabel: !s.sheetUrl ? 'Excel: sin conectar' : s.sync === 'syncing' ? 'Excel: sincronizando…' : s.sync === 'error' ? 'Excel: error'
+        : s.nPending ? `Sin cobertura · ${s.nPending} pendiente${s.nPending > 1 ? 's' : ''}` : 'Excel: guardado',
+      syncDetail: s.sync === 'error' ? s.syncMsg
+        : s.nPending ? 'Los cambios están guardados en este móvil y se subirán solos al recuperar conexión.'
+        : s.lastSync ? 'Última sincronización ' + when(s.lastSync) : '',
+      user: s.user, onUser: e => { const v = e.target.value; this.setState({ user: v }); try { localStorage.setItem(USERKEY, JSON.stringify(v)); } catch (x) {} },
+      logRows: s.log.slice(0, 40).map(logRow), hasLog: s.log.length > 0,
+      itemLog, hasItemLog: itemLog.length > 0
+    };
+  }
+}
+</script>
+</body>
+</html>

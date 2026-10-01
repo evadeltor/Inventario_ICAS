@@ -1,0 +1,10 @@
+{
+  "name": "Inventario PCB",
+  "short_name": "Inventario",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#f2f2f3",
+  "theme_color": "#5980a6",
+  "lang": "es"
+}
