@@ -29,7 +29,9 @@
     <button class="btn btn-ghost" onClick="{{ goInv }}" style="font-size: 13px; color: var(--color-accent-700);">{{ syncLabel }}</button>
     <div class="seg" role="tablist">
       <label class="seg-opt"><input type="radio" name="tab" checked="{{ isScanTab }}" onChange="{{ goScan }}" style="position: absolute; opacity: 0; width: 0; height: 0;">Escanear</label>
-      <label class="seg-opt"><input type="radio" name="tab" checked="{{ isInvTab }}" onChange="{{ goInv }}" style="position: absolute; opacity: 0; width: 0; height: 0;">Inventario · {{ invCount }}</label>
+      <label class="seg-opt"><input type="radio" name="tab" checked="{{ isFindTab }}" onChange="{{ goFind }}" style="position: absolute; opacity: 0; width: 0; height: 0;">Buscar</label>
+      <label class="seg-opt"><input type="radio" name="tab" checked="{{ isBomTab }}" onChange="{{ goBom }}" style="position: absolute; opacity: 0; width: 0; height: 0;">BOM</label>
+      <label class="seg-opt"><input type="radio" name="tab" checked="{{ isInvTab }}" onChange="{{ goInv }}" style="position: absolute; opacity: 0; width: 0; height: 0;">Inventario</label>
     </div>
   </header>
 
@@ -214,6 +216,112 @@
       </sc-if>
     </sc-if>
 
+    <sc-if value="{{ isFindTab }}">
+      <section style="display: flex; flex-direction: column; gap: var(--space-6);">
+        <div style="display: flex; flex-direction: column; gap: var(--space-2);">
+          <h1 style="margin: 0; font-size: 34px;">Buscar por valor</h1>
+          <p style="margin: 0; font-size: 14px; color: var(--color-neutral-700); text-wrap: pretty;">Escribe un valor y, si quieres, el encapsulado. También vale una referencia de fabricante.</p>
+        </div>
+        <div style="display: flex; flex-direction: column; gap: var(--space-3);">
+          <input class="input" value="{{ qText }}" onChange="{{ onQText }}" placeholder="10k 0805 · 100nF · 4k7 · LM358" style="min-height: 52px; font-size: 20px; font-family: var(--font-heading);">
+          <div style="display: flex; gap: var(--space-3); align-items: center; flex-wrap: wrap;">
+            <div class="seg">
+              <sc-for list="{{ qTypes }}" as="t" hint-placeholder-count="4">
+                <label class="seg-opt"><input type="radio" name="qtype" checked="{{ t.on }}" onChange="{{ t.pick }}" style="position: absolute; opacity: 0; width: 0; height: 0;">{{ t.label }}</label>
+              </sc-for>
+            </div>
+            <span style="font-size: 13px; color: var(--color-neutral-700);">{{ qReading }}</span>
+          </div>
+        </div>
+        <sc-if value="{{ qHas }}">
+          <div style="display: flex; flex-direction: column; gap: var(--space-3);">
+            <div style="display: flex; align-items: baseline; justify-content: space-between; gap: var(--space-3); flex-wrap: wrap;">
+              <h2 style="margin: 0; font-size: 26px;">{{ qTitle }}</h2>
+              <span style="font-size: 13px; color: var(--color-neutral-700);">{{ qSummary }}</span>
+            </div>
+            <div style="display: flex; flex-direction: column; border-top: 1px solid var(--color-divider);">
+              <sc-for list="{{ qRows }}" as="s" hint-placeholder-count="3">
+                <button onClick="{{ s.onOpen }}" style="all: unset; cursor: pointer; display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: var(--space-3); align-items: center; padding: var(--space-3) var(--space-2); border-bottom: 1px solid var(--color-divider);" style-hover="background: var(--color-accent-100);">
+                  <div style="display: flex; flex-direction: column; gap: 4px; min-width: 0;">
+                    <div style="display: flex; align-items: baseline; gap: var(--space-2); flex-wrap: wrap;">
+                      <span style="font-family: var(--font-heading); font-weight: 600; font-size: 22px;">{{ s.valueLabel }}</span>
+                      <span class="tag tag-accent">{{ s.diffLabel }}</span>
+                      <span class="tag tag-neutral">{{ s.pkgLabel }}</span>
+                    </div>
+                    <span style="font-size: 13px; color: var(--color-neutral-700); overflow-wrap: anywhere;">{{ s.mpn }} · {{ s.tol }} · {{ s.loc }}</span>
+                  </div>
+                  <div style="text-align: right;">
+                    <div style="font-family: var(--font-heading); font-weight: 600; font-size: 28px; line-height: 1; color: var(--color-accent-800);">{{ s.qty }}</div>
+                    <div style="font-size: 11px; color: var(--color-neutral-600);">uds</div>
+                  </div>
+                </button>
+              </sc-for>
+            </div>
+          </div>
+        </sc-if>
+        <sc-if value="{{ qNone }}">
+          <p style="margin: 0; padding: var(--space-4) 0; border-top: 1px solid var(--color-divider); font-size: 15px; color: var(--color-neutral-700);">{{ qNoneText }}</p>
+        </sc-if>
+      </section>
+    </sc-if>
+
+    <sc-if value="{{ isBomTab }}">
+      <section style="display: flex; flex-direction: column; gap: var(--space-6);">
+        <div style="display: flex; flex-direction: column; gap: var(--space-2);">
+          <h1 style="margin: 0; font-size: 34px;">Comprobar BOM</h1>
+          <p style="margin: 0; font-size: 14px; color: var(--color-neutral-700); text-wrap: pretty;">Sube el BOM exportado de KiCad (CSV o Excel). Te digo qué hay en el laboratorio, dónde está, qué se puede sustituir y qué hay que comprar.</p>
+        </div>
+        <div class="card blueprint" style="padding: var(--space-4); gap: var(--space-3);">
+          <i class="corner tl"></i><i class="corner tr"></i><i class="corner bl"></i><i class="corner br"></i>
+          <div style="display: grid; grid-template-columns: minmax(0, 1fr) 120px; gap: var(--space-3); align-items: end;">
+            <button class="btn btn-primary blueprint" onClick="{{ pickBom }}" style="min-height: 48px;"><i class="corner tl"></i><i class="corner tr"></i><i class="corner bl"></i><i class="corner br"></i>{{ bomBtn }}</button>
+            <div class="field"><label>Nº de placas</label><input class="input" type="number" min="1" value="{{ boards }}" onChange="{{ onBoards }}" style="min-height: 48px;"></div>
+          </div>
+          <input type="file" accept=".csv,.tsv,.txt,.xlsx,.xls" ref="{{ bomRef }}" onChange="{{ onBom }}" style="display: none;">
+          <div style="display: flex; gap: var(--space-2); align-items: center; flex-wrap: wrap; font-size: 13px; color: var(--color-neutral-700);">
+            <span>En KiCad: Herramientas › Generar lista de materiales › Exportar.</span>
+            <button class="btn btn-ghost" onClick="{{ demoBom }}" style="color: var(--color-accent-700);">Probar con un BOM de ejemplo</button>
+          </div>
+        </div>
+        <sc-if value="{{ bomHas }}">
+          <div style="display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); border-top: 1px solid var(--color-divider); border-bottom: 1px solid var(--color-divider);">
+            <sc-for list="{{ bomStats }}" as="k" hint-placeholder-count="4">
+              <div style="padding: var(--space-3) var(--space-2); display: flex; flex-direction: column; gap: 2px; border-right: 1px solid var(--color-divider);">
+                <span style="font-family: var(--font-heading); font-weight: 600; font-size: 40px; line-height: 1; color: var(--color-accent-800);">{{ k.n }}</span>
+                <span style="font-size: 12px; letter-spacing: 0.06em; text-transform: uppercase; color: var(--color-neutral-700);">{{ k.label }}</span>
+              </div>
+            </sc-for>
+          </div>
+          <div style="display: flex; justify-content: space-between; align-items: baseline; gap: var(--space-3); flex-wrap: wrap;">
+            <span style="font-size: 14px; color: var(--color-neutral-700); overflow-wrap: anywhere;">{{ bomName }} · {{ bomLines }} líneas</span>
+            <button class="btn btn-secondary" onClick="{{ exportBuy }}">Exportar lista de compra</button>
+          </div>
+          <div style="display: flex; flex-direction: column; border-top: 1px solid var(--color-divider);">
+            <sc-for list="{{ bomView }}" as="b" hint-placeholder-count="6">
+              <div style="display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: var(--space-3); align-items: start; padding: var(--space-3) var(--space-2); border-bottom: 1px solid var(--color-divider);">
+                <div style="display: flex; flex-direction: column; gap: 4px; min-width: 0;">
+                  <div style="display: flex; align-items: baseline; gap: var(--space-2); flex-wrap: wrap;">
+                    <span style="font-family: var(--font-heading); font-weight: 600; font-size: 22px;">{{ b.valueLabel }}</span>
+                    <sc-if value="{{ b.hasPkg }}"><span class="tag tag-neutral">{{ b.pkg }}</span></sc-if>
+                    <sc-if value="{{ b.isOk }}"><span class="tag tag-accent">Hay</span></sc-if>
+                    <sc-if value="{{ b.isEquiv }}"><span class="tag tag-outline" style="color: var(--color-accent-700); border-color: var(--color-accent-700);">Con equivalente</span></sc-if>
+                    <sc-if value="{{ b.isPart }}"><span class="tag tag-outline" style="color: var(--color-accent-700); border-color: var(--color-accent-700);">{{ b.shortLabel }}</span></sc-if>
+                    <sc-if value="{{ b.isMiss }}"><span class="tag" style="background: var(--color-accent-900); color: var(--color-bg);">No hay</span></sc-if>
+                  </div>
+                  <span style="font-size: 13px; color: var(--color-neutral-700); overflow-wrap: anywhere;">{{ b.refs }}</span>
+                  <sc-if value="{{ b.hasDetail }}"><span style="font-size: 13px; color: var(--color-accent-800); overflow-wrap: anywhere;">{{ b.detail }}</span></sc-if>
+                </div>
+                <div style="text-align: right; white-space: nowrap;">
+                  <div style="font-family: var(--font-heading); font-weight: 600; font-size: 24px; line-height: 1;"><span style="color: var(--color-accent-800);">{{ b.stock }}</span><span style="color: var(--color-neutral-500); font-size: 18px;"> / {{ b.need }}</span></div>
+                  <div style="font-size: 11px; color: var(--color-neutral-600);">hay / necesitas</div>
+                </div>
+              </div>
+            </sc-for>
+          </div>
+        </sc-if>
+      </section>
+    </sc-if>
+
     <sc-if value="{{ isInvTab }}">
       <section style="display: flex; flex-direction: column; gap: var(--space-4);">
         <div style="display: flex; align-items: baseline; justify-content: space-between; gap: var(--space-3); flex-wrap: wrap;">
@@ -393,6 +501,62 @@ function loadInv() {
 }
 function loadLS(k, d) { try { const v = JSON.parse(localStorage.getItem(k)); return v == null ? d : v; } catch (e) { return d; } }
 function when(t) { const d = new Date(t); return d.toLocaleDateString('es-ES', { day: '2-digit', month: '2-digit' }) + ' ' + d.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' }); }
+const PKG_RE = /(0201|0402|0603|0805|1206|1210|1812|2010|2512)/;
+const DEMO_BOM = '"Reference","Value","Footprint","Qty"\n"R1,R2,R3,R4","10k","Resistor_SMD:R_0805_2012Metric","4"\n"R5","5.05k","Resistor_SMD:R_0805_2012Metric","1"\n"R6,R7","4k7","Resistor_SMD:R_0603_1608Metric","2"\n"R8","220","Resistor_SMD:R_0805_2012Metric","1"\n"C1,C2,C3,C4,C5,C6","100nF","Capacitor_SMD:C_0805_2012Metric","6"\n"C7,C8","10uF","Capacitor_SMD:C_0805_2012Metric","2"\n"C9","22pF","Capacitor_SMD:C_0603_1608Metric","1"\n"U1","LM358","Package_SO:SOIC-8_3.9x4.9mm_P1.27mm","1"\n"U2","STM32F103C8T6","Package_QFP:LQFP-48_7x7mm_P0.5mm","1"';
+function parseCSV(t) {
+  t = t.replace(/^\ufeff/, '');
+  const first = t.split(/\r?\n/)[0];
+  const sep = [';', '\t', ','].map(c => [c, first.split(c).length]).sort((a, b) => b[1] - a[1])[0][0];
+  const rows = []; let row = [], cell = '', q = false;
+  for (let i = 0; i < t.length; i++) {
+    const ch = t[i];
+    if (q) { if (ch === '"') { if (t[i + 1] === '"') { cell += '"'; i++; } else q = false; } else cell += ch; }
+    else if (ch === '"') q = true;
+    else if (ch === sep) { row.push(cell); cell = ''; }
+    else if (ch === '\n') { row.push(cell); rows.push(row); row = []; cell = ''; }
+    else if (ch !== '\r') cell += ch;
+  }
+  if (cell || row.length) { row.push(cell); rows.push(row); }
+  return rows;
+}
+function parseBom(rows) {
+  const low = r => r.map(c => String(c || '').trim().toLowerCase());
+  let hi = rows.slice(0, 15).findIndex(r => low(r).some(c => /^(ref|designator|referenc)/.test(c)));
+  if (hi < 0) hi = 0;
+  const head = low(rows[hi]);
+  const col = re => head.findIndex(c => re.test(c));
+  const c = { ref: col(/^(ref|designator|referenc)/), val: col(/^(value|valor|comment)/), fp: col(/(footprint|package|huella|encaps)/), qty: col(/^(qty|quantity|cantidad|cant)/), mpn: col(/(mpn|manufacturer.?part|mfr.?p|part.?number|ref.*fabric)/) };
+  const groups = new Map();
+  rows.slice(hi + 1).forEach(r => {
+    const g = i => i >= 0 ? String(r[i] == null ? '' : r[i]).trim() : '';
+    const refs = g(c.ref), val = g(c.val), fp = g(c.fp), mpn = g(c.mpn);
+    if (!refs && !val) return;
+    const list = refs.split(/[,;\s]+/).filter(Boolean);
+    const qty = parseInt(g(c.qty), 10) || list.length || 1;
+    const pre = (list[0] || '').match(/^[A-Za-z]+/);
+    const p0 = pre ? pre[0].toUpperCase() : '';
+    const type = p0 === 'R' || p0 === 'RN' ? 'R' : p0 === 'C' ? 'C' : p0 === 'L' || p0 === 'FB' ? (p0 === 'L' ? 'L' : 'X') : 'X';
+    const pkg = (fp.match(PKG_RE) || [])[1] || (fp.includes(':') ? fp.split(':')[1] : fp);
+    const vtok = val.split(/[\s\/_]+/)[0];
+    const value = type === 'X' ? null : parseValue(vtok, type);
+    const key = [type, value != null ? value.toPrecision(6) : norm(val), pkg, norm(mpn)].join('|');
+    const ex = groups.get(key);
+    if (ex) { ex.qty += qty; ex.refs.push(...list); }
+    else groups.set(key, { refs: list, val, type, value, pkg, mpn, qty });
+  });
+  return [...groups.values()];
+}
+let xlsxP = null;
+function loadXlsx() {
+  if (window.XLSX) return Promise.resolve();
+  if (!xlsxP) xlsxP = new Promise((res, rej) => {
+    const s = document.createElement('script');
+    s.src = 'https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js';
+    s.onload = res; s.onerror = () => rej(new Error('No se pudo cargar el lector de Excel'));
+    document.head.appendChild(s);
+  });
+  return xlsxP;
+}
 let wasmP = null;
 function loadWasmReader() {
   if (window.BarcodeDetectionAPI) return Promise.resolve();
@@ -418,10 +582,50 @@ function loadZxing() {
 
 class Component extends DCLogic {
   videoRef = React.createRef();
+  bomRef = React.createRef();
+  matchFor(type, value, pkg, exclude) {
+    const tol = (this.props.tolerancePct ?? 5) / 100, inv = this.state.inv;
+    const exact = [], equiv = [];
+    if (!(value >= 0) || !['R', 'C', 'L'].includes(type)) return { exact, equiv };
+    inv.forEach(i => {
+      if (i === exclude || i.type !== type || i.value == null) return;
+      const r = value === 0 ? (i.value === 0 ? 0 : 1) : (i.value - value) / value;
+      const same = !pkg || i.pkg === pkg;
+      if (Math.abs(r) < 1e-6 && same) exact.push({ i, r, same });
+      else if (Math.abs(r) <= tol + 1e-9 && i.qty > 0) equiv.push({ i, r, same });
+    });
+    equiv.sort((a, b) => (Math.abs(a.r) + (a.same ? 0 : tol)) - (Math.abs(b.r) + (b.same ? 0 : tol)));
+    return { exact, equiv };
+  }
+  onBom = async e => {
+    const f = e.target.files && e.target.files[0]; e.target.value = '';
+    if (!f) return;
+    try {
+      let rows;
+      if (/\.xlsx?$/i.test(f.name)) {
+        await loadXlsx();
+        const wb = window.XLSX.read(await f.arrayBuffer(), { type: 'array' });
+        rows = window.XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]], { header: 1, raw: false, defval: '' });
+      } else rows = parseCSV(await f.text());
+      const bom = parseBom(rows);
+      if (!bom.length) return this.flash('No encuentro columnas Reference / Value en el archivo');
+      this.setState({ bom, bomName: f.name });
+    } catch (err) { this.flash('No se pudo leer el archivo'); }
+  };
+  exportBuy = () => {
+    const lines = (this.bomEval || []).filter(b => b.status === 'miss' || b.status === 'part');
+    if (!lines.length) return this.flash('No hace falta comprar nada');
+    const csv = [['referencias', 'valor', 'encapsulado', 'mpn', 'necesarias', 'en_stock', 'a_comprar']]
+      .concat(lines.map(b => [b.refs.join(' '), b.val, b.pkg, b.mpn, b.need, b.stock, b.need - b.stock]))
+      .map(r => r.map(x => /[;"\n]/.test(String(x)) ? '"' + String(x).replace(/"/g, '""') + '"' : x).join(';')).join('\n');
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(new Blob(['\ufeff' + csv], { type: 'text/csv' }));
+    a.download = 'lista-compra.csv'; a.click();
+  };
   photoRef = React.createRef();
   fileRef = React.createRef();
   state = { tab: 'scan', inv: loadInv(), camOn: false, camErr: '', raw: '', fields: {}, hasResult: false,
-    mpnQuery: '', bagQty: 0, dType: 'R', dValue: '', dPkg: '', loc: '', takeN: 1, manual: '', search: '', toast: '', log: loadLS(LOGKEY, []), user: loadLS(USERKEY, ''),
+    mpnQuery: '', bagQty: 0, dType: 'R', dValue: '', dPkg: '', loc: '', takeN: 1, manual: '', search: '', qText: '', qType: 'auto', bom: null, bomName: '', boards: 1, toast: '', log: loadLS(LOGKEY, []), user: loadLS(USERKEY, ''),
     sheetUrl: loadLS(SHEETKEY, '') || DEFAULT_SHEET, urlDraft: loadLS(SHEETKEY, '') || DEFAULT_SHEET, sync: 'off', syncMsg: '', lastSync: 0, online: navigator.onLine, nPending: loadLS(PENDKEY, []).length };
   pending = loadLS(PENDKEY, []);
 
@@ -706,10 +910,77 @@ class Component extends DCLogic {
     const raw = s.raw || '';
     const tLabel = (hasValue ? fmt(target.value, target.type) : (TYPES[target.type] || 'Componente')) + (target.pkg ? ' · ' + target.pkg : '');
     const set = k => e => this.setState({ [k]: e.target.value });
+    const tolPctV = this.props.tolerancePct ?? 5;
+    const simRow = ({ i, r, same }, pkg) => ({ valueLabel: i.value != null ? fmt(i.value, i.type) : (TYPES[i.type] || ''), mpn: i.mpn, tol: i.tol || '—', loc: i.loc, qty: i.qty,
+      diffLabel: Math.abs(r) < 1e-6 ? (i.qty > 0 ? 'Exacto' : 'Exacto · agotado') : (r > 0 ? '+' : '') + (r * 100).toFixed(1) + '%',
+      pkgLabel: (i.pkg || '—') + (pkg && same ? ' · igual' : ''), onOpen: () => this.handleRaw(i.mpn) });
+    // quick search
+    let qRows = [], qTitle = '', qSummary = '', qReading = '', qNoneText = '';
+    const qt = s.qText.trim();
+    if (qt) {
+      const toks = qt.split(/[\s,;]+/);
+      let pkg = '', vtok = null;
+      toks.forEach(t => { if (/^(0201|0402|0603|0805|1206|1210|1812|2010|2512)$/.test(t)) pkg = t; else if (!vtok && /^\d/.test(t)) vtok = t; });
+      let type = s.qType;
+      if (type === 'auto' && vtok) type = /f$/i.test(vtok) ? 'C' : /h$/i.test(vtok) ? 'L' : /[pnuµ]/i.test(vtok) ? 'C' : 'R';
+      const value = vtok ? parseValue(vtok, type) : null;
+      if (value != null && ['R', 'C', 'L'].includes(type)) {
+        const m = this.matchFor(type, value, pkg);
+        qRows = [...m.exact, ...m.equiv].map(x => simRow(x, pkg));
+        const tot = m.exact.reduce((a, x) => a + x.i.qty, 0);
+        qTitle = fmt(value, type) + (pkg ? ' · ' + pkg : '');
+        qSummary = tot ? `${tot} uds exactas · ${m.equiv.length} equivalentes ±${tolPctV}%` : `Sin exactos · ${m.equiv.length} equivalentes ±${tolPctV}%`;
+        qReading = 'Leo: ' + TYPES[type] + ' de ' + fmt(value, type) + (pkg ? ', encapsulado ' + pkg : ', cualquier encapsulado');
+        qNoneText = `No hay ${fmt(value, type)}${pkg ? ' ' + pkg : ''} ni nada a ±${tolPctV}%.`;
+      } else {
+        const nq = norm(qt);
+        qRows = inv.filter(i => norm(i.mpn).includes(nq) || norm(i.mfr).includes(nq)).map(i => simRow({ i, r: 0, same: true }, ''));
+        qTitle = 'Referencias con «' + qt + '»'; qSummary = qRows.length + ' encontradas';
+        qReading = 'Busco por referencia de fabricante'; qNoneText = 'No hay ninguna referencia que contenga «' + qt + '».';
+      }
+    }
+    // BOM
+    const boards = Math.max(1, parseInt(s.boards, 10) || 1);
+    const bomEval = (s.bom || []).map(b => {
+      const need = b.qty * boards;
+      let exact = [], equiv = [];
+      if (b.type !== 'X' && b.value != null) ({ exact, equiv } = this.matchFor(b.type, b.value, PKG_RE.test(b.pkg) ? b.pkg : ''));
+      else {
+        const keys = [norm(b.mpn), norm(b.val)].filter(k => k.length >= 3);
+        exact = inv.filter(i => keys.some(k => norm(i.mpn) === k || norm(i.mpn).startsWith(k))).map(i => ({ i, r: 0, same: true }));
+      }
+      const stock = exact.reduce((a, x) => a + x.i.qty, 0);
+      const eqSame = equiv.filter(x => x.same), eqStock = eqSame.reduce((a, x) => a + x.i.qty, 0);
+      const status = stock >= need ? 'ok' : (stock + eqStock >= need && eqSame.length) ? 'equiv' : stock > 0 ? 'part' : 'miss';
+      const where = exact.filter(x => x.i.qty > 0).map(x => `${x.i.loc} (${x.i.qty})`).join(', ');
+      let detail = '';
+      if (status === 'ok') detail = 'En ' + where;
+      else if (status === 'equiv') detail = (stock ? 'Exactas en ' + where + '. ' : '') + 'Usa ' + eqSame.slice(0, 2).map(x => `${fmt(x.i.value, x.i.type)} (${(x.r > 0 ? '+' : '') + (x.r * 100).toFixed(1)}%) en ${x.i.loc}, ${x.i.qty} uds`).join(' o ');
+      else if (status === 'part') detail = 'En ' + where + ` · faltan ${need - stock}`;
+      else if (equiv.length) detail = 'Solo en otro encapsulado: ' + equiv.slice(0, 2).map(x => `${fmt(x.i.value, x.i.type)} ${x.i.pkg} en ${x.i.loc}`).join(', ');
+      return { ...b, need, stock, status, detail };
+    });
+    this.bomEval = bomEval;
+    const order = { miss: 0, part: 1, equiv: 2, ok: 3 };
+    const bomView = bomEval.slice().sort((a, b) => order[a.status] - order[b.status]).map(b => ({
+      valueLabel: b.value != null ? fmt(b.value, b.type) : (b.val || b.mpn || '—'), pkg: b.pkg, hasPkg: !!b.pkg,
+      refs: b.refs.join(', ') + (b.mpn ? ' · ' + b.mpn : ''), need: b.need, stock: b.stock,
+      isOk: b.status === 'ok', isEquiv: b.status === 'equiv', isPart: b.status === 'part', isMiss: b.status === 'miss',
+      shortLabel: 'Faltan ' + (b.need - b.stock), detail: b.detail, hasDetail: !!b.detail }));
+    const cnt = k => bomEval.filter(b => b.status === k).length;
     const logRow = l => ({ when: when(l.t), user: l.user, kind: l.kind, mpn: l.mpn, delta: l.delta > 0 ? '+' + l.delta : String(l.delta), after: l.after == null ? '' : '→ ' + l.after });
     const itemLog = match ? s.log.filter(l => norm(l.mpn) === norm(match.mpn)).slice(0, 5).map(logRow) : [];
     return {
-      isScanTab: s.tab === 'scan', isInvTab: s.tab === 'inv',
+      isScanTab: s.tab === 'scan', isInvTab: s.tab === 'inv', isFindTab: s.tab === 'find', isBomTab: s.tab === 'bom',
+      goFind: () => { this.stopCam(); this.setState({ tab: 'find' }); }, goBom: () => { this.stopCam(); this.setState({ tab: 'bom' }); },
+      qText: s.qText, onQText: set('qText'),
+      qTypes: [['auto', 'Auto'], ['R', 'Resistencia'], ['C', 'Condensador'], ['L', 'Bobina']].map(([k, label]) => ({ label, on: s.qType === k, pick: () => this.setState({ qType: k }) })),
+      qReading, qTitle, qSummary, qRows, qHas: qRows.length > 0, qNone: !!qt && qRows.length === 0, qNoneText,
+      bomRef: this.bomRef, pickBom: () => this.bomRef.current && this.bomRef.current.click(), onBom: this.onBom,
+      demoBom: () => this.setState({ bom: parseBom(parseCSV(DEMO_BOM)), bomName: 'ejemplo.csv' }),
+      bomBtn: s.bom ? 'Subir otro BOM' : 'Subir BOM (CSV o Excel)', boards: s.boards, onBoards: set('boards'),
+      bomHas: bomEval.length > 0, bomName: s.bomName, bomLines: bomEval.length, bomView, exportBuy: this.exportBuy,
+      bomStats: [['ok', 'Hay'], ['equiv', 'Equivalente'], ['part', 'Insuficiente'], ['miss', 'No hay']].map(([k, label]) => ({ n: cnt(k), label })),
       goScan: () => this.setState({ tab: 'scan' }), goInv: () => { this.stopCam(); this.setState({ tab: 'inv' }); },
       invCount: inv.length, invUnits: inv.reduce((a, i) => a + (i.qty || 0), 0),
       videoRef: this.videoRef, fileRef: this.fileRef,
