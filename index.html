@@ -26,7 +26,7 @@
       <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="4" width="16" height="16"></rect><rect x="9" y="9" width="6" height="6"></rect><path d="M9 1v3M15 1v3M9 20v3M15 20v3M20 9h3M20 14h3M1 9h3M1 14h3"></path></svg>
       <span>Inventario PCB</span>
     </div>
-    <div style="display: flex; flex-direction: column; align-items: flex-end; gap: 0;"><button class="btn btn-ghost" onClick="{{ goInv }}" style="font-size: 13px; color: var(--color-accent-700);">{{ syncLabel }}</button><span style="font-size: 10px; letter-spacing: 0.06em; color: var(--color-neutral-600); padding-right: var(--space-2);">v7</span></div>
+    <div style="display: flex; flex-direction: column; align-items: flex-end; gap: 0;"><button class="btn btn-ghost" onClick="{{ goInv }}" style="font-size: 13px; color: var(--color-accent-700);">{{ syncLabel }}</button><span style="font-size: 10px; letter-spacing: 0.06em; color: var(--color-neutral-600); padding-right: var(--space-2);">v10</span></div>
     <div class="seg" role="tablist">
       <label class="seg-opt"><input type="radio" name="tab" checked="{{ isScanTab }}" onChange="{{ goScan }}" style="position: absolute; opacity: 0; width: 0; height: 0;">Escanear</label>
       <label class="seg-opt"><input type="radio" name="tab" checked="{{ isFindTab }}" onChange="{{ goFind }}" style="position: absolute; opacity: 0; width: 0; height: 0;">Buscar</label>
@@ -72,6 +72,8 @@
               </button>
               <button class="btn btn-secondary" onClick="{{ pickPhoto }}" style="min-height: 44px; padding-inline: 20px;">Hacer foto del código</button>
               <input type="file" accept="image/*" capture="environment" ref="{{ photoRef }}" onChange="{{ onPhoto }}" style="display: none;">
+              <button class="btn btn-ghost" onClick="{{ pickOcr }}" disabled="{{ ocrBusy }}" style="min-height: 44px; color: var(--color-accent-700);">{{ ocrLabel }}</button>
+              <input type="file" accept="image/*" capture="environment" ref="{{ ocrRef }}" onChange="{{ onOcr }}" style="display: none;">
               <sc-if value="{{ hasCamErr }}"><p style="margin: 0; font-size: 13px; color: var(--color-accent-800); max-width: 40ch;">{{ camErr }}</p></sc-if>
             </div>
           </sc-if>
@@ -124,9 +126,9 @@
                 <p style="margin: 0; font-size: 13px; color: var(--color-neutral-700); text-wrap: pretty;">El código no incluye el valor; lo he deducido de la referencia. Corrígelo si hace falta para buscar equivalentes.</p>
                 <div style="display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: var(--space-2);">
                   <div class="field"><label>Tipo</label>
-                    <select class="input" value="{{ dType }}" onChange="{{ onDType }}">
-                      <option value="R">Resistencia</option><option value="C">Condensador</option><option value="L">Bobina</option><option value="IC">Integrado</option><option value="O">Otro</option>
-                    </select>
+                    <input class="input" list="pcb-cats" value="{{ dType }}" onChange="{{ onDType }}" placeholder="Regulador…">
+                    <datalist id="pcb-cats"><sc-for list="{{ catOpts }}" as="c" hint-placeholder-count="0"><option value="{{ c }}"></option></sc-for></datalist>
+                    <sc-if value="{{ catNote }}"><span style="font-size: 12px; line-height: 1.35; color: var(--color-accent-800);">{{ catNote }}</span></sc-if>
                   </div>
                   <div class="field"><label>Valor</label><input class="input" value="{{ dValue }}" onChange="{{ onDValue }}" placeholder="5.05k"></div>
                   <div class="field"><label>Encapsulado</label><input class="input" value="{{ dPkg }}" onChange="{{ onDPkg }}" placeholder="0805"></div>
@@ -439,9 +441,22 @@ const locIn = l => l && l !== '—' ? ' en ' + l : '';
 const DEMO_A = '>[)>06<GS>KCC7565<GS>14K027<GS>1PPFC-W0805LF-03-5051-B<GS>Q40<GS>11K057316233<GS>4LUS<GS>1VTT Electronics';
 const DEMO_A_OLD = '[)>\x1e06\x1dKCC7565\x1d14K027\x1d1PPFC-W0805LF-03-5051-B\x1dQ40\x1d11K057316233\x1d4LUS\x1d1VTT Electronics\x1e\x04';
 const DEMO_B = '>[)>06<GS>KCC7565<GS>14K012<GS>1PRC0805FR-0710KL<GS>Q100<GS>11K057316233<GS>4LTW<GS>1VYageo';
-const FIELD_LABELS = { '1P':'Ref. fabricante', '1V':'Fabricante', 'Q':'Cantidad', 'P':'Ref. cliente/distribuidor', 'K':'Pedido', '14K':'Línea', '11K':'Factura', '4L':'País', '1T':'Lote', '10D':'Fecha', '9D':'Fecha', '12Z':'—', '13Z':'—', '20Z':'—' };
+const FIELD_LABELS = { 'D':'Descripción (texto)', '1P':'Ref. fabricante', '1V':'Fabricante', 'Q':'Cantidad', 'P':'Ref. cliente/distribuidor', 'K':'Pedido', '14K':'Línea', '11K':'Factura', '4L':'País', '1T':'Lote', '10D':'Fecha', '9D':'Fecha', '12Z':'—', '13Z':'—', '20Z':'—' };
 const IDS = ['14K','11K','12K','10D','11Z','12Z','13Z','20Z','1P','1T','4L','1V','9D','K','P','Q','D','T','V','L'];
 const TYPES = { R: 'Resistencia', C: 'Condensador', L: 'Bobina', IC: 'Integrado', O: 'Otro' };
+const CATS = ['Resistencia', 'Condensador', 'Bobina', 'Ferrita', 'Diodo', 'LED', 'Transistor', 'MOSFET', 'Regulador', 'Oscilador / cristal', 'Microcontrolador', 'Amplificador operacional', 'Sensor', 'Conector', 'Fusible', 'Integrado', 'Otro'];
+const typeName = t => TYPES[t] || t || '';
+const typeCode = n => { const s = String(n || '').trim(), l = s.toLowerCase(); if (!l) return ''; if (/^resist/.test(l)) return 'R'; if (/^(conden|capac)/.test(l)) return 'C'; if (/^(bobina|induct)/.test(l)) return 'L'; if (l === 'integrado') return 'IC'; if (l === 'otro') return 'O'; return s.charAt(0).toUpperCase() + s.slice(1); };
+const CAT_RULES = [[/^(LM317|LM78|LM79|LM1117|AMS1117|LD1117|LD39|LDL|MCP17|TLV7|TPS7|AP2112|AP7|XC62|RT9|MIC5|NCP1117|LP29|LP59|ADP1|TLV1117|HT7|TPS6|TPS5|LM2596|LM2675|MP1584|MP2)/, 'Regulador'],
+  [/^(ABM|ABLS|ECS|FA-|TSX|SIT|ASE|ASFL|FC-|NX\d|CSTCE|CSTNE|ABRACON|7M|8Y|X1E|Q\d{2}|FOX|ECX)/, 'Oscilador / cristal'],
+  [/^(STM32|STM8|ATMEGA|ATTINY|ATSAM|ESP32|ESP8266|PIC\d|DSPIC|RP2040|NRF5|MSP430|EFM32|GD32|CH32|LPC\d)/, 'Microcontrolador'],
+  [/^(LM358|LM324|LM741|OPA|TL07|TL08|MCP60|MCP61|AD86|LMV3|TLV9|ADA4|LT6|NE5532)/, 'Amplificador operacional'],
+  [/^(1N4|1N5|BAT|BAV|BAS|SS\d|SMBJ|SMAJ|BZX|BZT|MBR|ES\d|US\d|S1[A-M]|RB\d|PESD|TVS|SMF|ESD)/, 'Diodo'],
+  [/^(LTST|LTW|KP-|APT|APHHS|19-21|LED|SML|LG |LS |XL-|WL-|ASMT|KPT)/, 'LED'],
+  [/^(BSS|AO\d|IRF|IRL|SI\d{4}|DMG|DMN|DMP|FDN|FDS|NTR|2N7|BSZ|BSC|NVTFS)/, 'MOSFET'],
+  [/^(BC8|BC3|BC5|2N\d|MMBT|PMBT|MJD|TIP|PBSS|BCX|BFR)/, 'Transistor'],
+  [/^(BLM|MPZ|HZ\d|FBMH|BK\d|742\d)/, 'Ferrita'],
+  [/^(0ZC|MF-|NANOSMDC|SMD\d{3}|PTS|RXEF|0154|0451|0452|0453|0466|0467|0468|SF-)/, 'Fusible']];
 const MULT = { p:1e-12, n:1e-9, u:1e-6, 'µ':1e-6, m:1e-3, k:1e3, K:1e3, M:1e6, G:1e9, r:1, R:1 };
 
 const norm = s => String(s || '').toUpperCase().replace(/[^A-Z0-9]/g, '');
@@ -487,7 +502,8 @@ function detect(mpn) {
   if (/^(GRM|GCM|CL\d|C\d{4}|CC\d|KGM|EMK|TMK|GRT|CGA)/.test(u)) type = 'C';
   else if (/^(RC|ERJ|ERA|CRCW|PFC|RN|RT|RG|CRG|MCR|TNPW|WR|RMCF|AC\d|CPF|CRGP|CRGH|RP\d|RR\d|RK73|SR\d|ESR|PAT|PNM|MCT|MCS|CR\d|CHP|HP\d|ARG|TR\d|RNCP|RNCF|RMC|KTR|PCF|ERJP)/.test(u)) type = 'R';
   let rest = pkg ? u.replace(pkg, ' ') : u;
-  if (!type && /\d{1,3}[RKM]\d{0,3}/.test(rest.replace(/^[A-Z]+/, ''))) type = 'R';
+  if (!type) { const r = CAT_RULES.find(([re]) => re.test(u)); if (r) return { type: r[1], value: null, pkg }; }
+  if (!type && !/HZ/.test(u) && /\d{1,3}[RKM]\d{0,3}/.test(rest.replace(/^[A-Z]+/, ''))) type = 'R';
   if (/^RC/.test(u)) rest = rest.replace(/-(07|10|13)(?=\d)/, '-');
   let value = null;
   if (type === 'R') {
@@ -498,7 +514,40 @@ function detect(mpn) {
     const m = rest.match(/(\d{2})(\d)[JKMZ]/);
     if (m) value = parseInt(m[1], 10) * Math.pow(10, parseInt(m[2], 10)) * 1e-12;
   }
+  if (!type) { const r = CAT_RULES.find(([re]) => re.test(u)); if (r) type = r[1]; }
   return { type, value, pkg };
+}
+let tessP = null;
+function loadTess() {
+  if (window.Tesseract) return Promise.resolve();
+  if (!tessP) tessP = new Promise((res, rej) => {
+    const s = document.createElement('script');
+    s.src = 'https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js';
+    s.onload = res; s.onerror = () => { tessP = null; rej(new Error('Sin conexión: el lector de texto se descarga la primera vez')); };
+    document.head.appendChild(s);
+  });
+  return tessP;
+}
+function parseOcr(text) {
+  const t = text.replace(/[ØøΘθ]/g, '0').replace(/[|]/g, 'I');
+  const lines = t.split(/\n/).map(l => l.trim()).filter(Boolean);
+  const grab = re => { for (const l of lines) { const m = l.match(re); if (m) return m[1].trim(); } return ''; };
+  const code = s => (s.match(/[A-Z0-9][A-Z0-9\-\/.#+]{3,}/i) || [''])[0].replace(/[.,]$/, '').toUpperCase();
+  let mpn = code(grab(/(?:fabricante|mfr\.?\s*p(?:art)?|manufacturer\s*p(?:art)?(?:\s*n(?:o|umber)?)?|mfg\.?\s*p\/?n|mpn)[^:#]*[:#]+\s*(.+)/i));
+  if (!mpn) { const m = grab(/(?:referencia\s*mouser|mouser\s*(?:p\/?n|no))[^:]*:+\s*(.+)/i); mpn = code(m).replace(/^\d{2,3}-/, ''); }
+  if (!mpn) mpn = code(grab(/(?:ref(?:erencia)?\.?\s*(?:del\s*)?(?:art|prod)|part\s*(?:no|number)|p\/n)[^:]*:+\s*(.+)/i));
+  const qty = (grab(/(?:cdad|cantidad|qty|quantity|cant)\.?\s*:*\s*(\d+)/i) || '');
+  const desc = grab(/(?:desc(?:ripci[oó]n)?|description)\.?\s*:+\s*(.+)/i);
+  const mfr = grab(/^(?:fabricante|manufacturer|mfr)\s*:+\s*([A-Za-z][^:]{1,30})$/i);
+  return { mpn, qty, desc, mfr, ok: !!mpn };
+}
+function valueFromDesc(desc, type) {
+  const d = String(desc || '');
+  const kind = type || (/(resist|ohm|Ω)/i.test(d) ? 'R' : /(capac|conden|\d\s*[pnuµ]F)/i.test(d) ? 'C' : /(induct|bobina|\d\s*[nuµm]H)/i.test(d) ? 'L' : '');
+  if (!['R', 'C', 'L'].includes(kind)) return null;
+  const toks = d.replace(/,/g, '.').split(/\s+/).filter(x => /^\d/.test(x) && !/^(0201|0402|0603|0805|1206|1210|2010|2512)$/.test(x) && !/%$/.test(x) && !/[VW]$/i.test(x));
+  for (const tk of toks) { const v = parseValue(tk.replace(/(ohms?|Ω)$/i, ''), kind); if (v != null) return { type: kind, value: v }; }
+  return null;
 }
 function loadInv() {
   try { const v = JSON.parse(localStorage.getItem(KEY)); if (Array.isArray(v)) return v; } catch (e) {}
@@ -628,8 +677,44 @@ class Component extends DCLogic {
     a.download = 'lista-compra.csv'; a.click();
   };
   photoRef = React.createRef();
+  ocrRef = React.createRef();
+  pickOcr = () => { this.stopCam(); this.ocrRef.current && this.ocrRef.current.click(); };
+  onOcr = async e => {
+    const f = e.target.files && e.target.files[0]; e.target.value = '';
+    if (!f) return;
+    this.setState({ ocrBusy: true, ocrMsg: 'Preparando lector…' });
+    try {
+      await loadTess();
+      if (!this.tw) this.tw = await window.Tesseract.createWorker('eng', 1, { logger: m => m.status === 'recognizing text' && this.setState({ ocrMsg: 'Leyendo texto… ' + Math.round(m.progress * 100) + '%' }) });
+      const img = await new Promise((res, rej) => { const i = new Image(); i.onload = () => res(i); i.onerror = rej; i.src = URL.createObjectURL(f); });
+      const sc = Math.min(1, 2200 / Math.max(img.naturalWidth, img.naturalHeight));
+      const W = Math.round(img.naturalWidth * sc), H = Math.round(img.naturalHeight * sc);
+      let best = null;
+      for (const rot of [0, 90, 270, 180]) {
+        const cv = document.createElement('canvas'), sw = rot % 180 !== 0;
+        cv.width = sw ? H : W; cv.height = sw ? W : H;
+        const ctx = cv.getContext('2d');
+        ctx.translate(cv.width / 2, cv.height / 2); ctx.rotate(rot * Math.PI / 180);
+        ctx.filter = 'grayscale(1) contrast(1.4)';
+        ctx.drawImage(img, -W / 2, -H / 2, W, H);
+        const { data } = await this.tw.recognize(cv);
+        const p = parseOcr(data.text);
+        const score = (p.ok ? 3 : 0) + (p.qty ? 1 : 0) + (p.desc ? 1 : 0) + data.confidence / 100;
+        if (!best || score > best.score) best = { ...p, text: data.text, score };
+        if (p.ok && (p.qty || p.desc)) break;
+      }
+      if (!best || !best.ok) { this.setState({ ocrBusy: false }); return this.flash('No encuentro la referencia en el texto. Haz la foto más cerca y recta.'); }
+      const raw = '[)>\u001e06\u001d1P' + best.mpn + (best.qty ? '\u001dQ' + best.qty : '') + (best.mfr ? '\u001d1V' + best.mfr : '');
+      this.handleRaw(raw);
+      const s = this.state, fromDesc = valueFromDesc(best.desc, typeCode(s.dType) === 'R' || typeCode(s.dType) === 'C' || typeCode(s.dType) === 'L' ? typeCode(s.dType) : '');
+      const extra = { raw: best.text.trim(), fields: { ...s.fields, ...(best.desc ? { D: best.desc } : {}) }, ocrBusy: false };
+      if (!this.find(best.mpn) && fromDesc && !s.dValue) Object.assign(extra, { dType: typeName(fromDesc.type), dValue: short(fromDesc.value, fromDesc.type) });
+      this.setState(extra);
+      this.flash('Texto leído · revisa los datos');
+    } catch (err) { this.setState({ ocrBusy: false }); this.flash(err.message || 'No se pudo leer el texto'); }
+  };
   fileRef = React.createRef();
-  state = { tab: 'scan', inv: loadInv(), camOn: false, camErr: '', raw: '', fields: {}, hasResult: false,
+  state = { cats: loadLS('pcbinv.cats.v1', []), tab: 'scan', inv: loadInv(), camOn: false, camErr: '', raw: '', fields: {}, hasResult: false,
     mpnQuery: '', bagQty: 0, dType: 'R', dValue: '', dPkg: '', loc: '', takeN: 1, manual: '', search: '', qText: '', qType: 'auto', bom: null, bomName: '', boards: 1, toast: '', log: loadLS(LOGKEY, []), user: loadLS(USERKEY, ''),
     sheetUrl: loadLS(SHEETKEY, '') || DEFAULT_SHEET, urlDraft: loadLS(SHEETKEY, '') || DEFAULT_SHEET, sync: 'off', syncMsg: '', lastSync: 0, online: navigator.onLine, nPending: loadLS(PENDKEY, []).length };
   pending = loadLS(PENDKEY, []);
@@ -655,9 +740,11 @@ class Component extends DCLogic {
   setPending(p) { this.pending = p; this.setState({ nPending: p.length }); try { localStorage.setItem(PENDKEY, JSON.stringify(p)); } catch (e) {} }
   applyRemote(j) {
     if (!j || !j.ok) throw new Error((j && j.error) || 'Respuesta no válida');
-    const inv = j.items.map(i => { const mpn = String(i.mpn); const type = i.type || detect(mpn).type || 'O'; return { ...i, mpn, type, value: parseValue(String(i.value), type), pkg: fixPkg(i.pkg), tol: fixTol(i.tol), loc: String(i.loc || '') }; });
+    const inv = j.items.map(i => { const mpn = String(i.mpn); const type = typeCode(i.type) || detect(mpn).type || 'O'; return { ...i, mpn, type, value: parseValue(String(i.value), type), pkg: fixPkg(i.pkg), tol: fixTol(i.tol), loc: String(i.loc || '') }; });
     try { localStorage.setItem(KEY, JSON.stringify(inv)); localStorage.setItem(LOGKEY, JSON.stringify(j.log)); } catch (e) {}
-    this.setState({ inv, log: j.log, sync: 'ok', syncMsg: '', lastSync: Date.now() });
+    const cats = Array.isArray(j.cats) ? j.cats : this.state.cats;
+    try { localStorage.setItem('pcbinv.cats.v1', JSON.stringify(cats)); } catch (e) {}
+    this.setState({ inv, log: j.log, cats, sync: 'ok', syncMsg: '', lastSync: Date.now() });
   }
   push(op) {
     if (!this.state.sheetUrl) return;
@@ -717,7 +804,7 @@ class Component extends DCLogic {
     const match = this.find(mpn);
     const d = match ? { type: match.type, value: match.value, pkg: match.pkg } : detect(mpn);
     this.setState({ raw, fields: p.fields, hasResult: !!mpn, mpnQuery: mpn, bagQty: parseInt(p.fields.Q, 10) || 0,
-      dType: d.type || 'R', dValue: d.value != null ? short(d.value, d.type) : '', dPkg: d.pkg || '',
+      dType: typeName(d.type), dValue: d.value != null ? short(d.value, d.type) : '', dPkg: d.pkg || '',
       loc: match ? match.loc : '', takeN: 1, tab: 'scan', manual: '' });
     window.scrollTo({ top: 0, behavior: 'smooth' });
   }
@@ -845,7 +932,7 @@ class Component extends DCLogic {
     const match = this.find(s.mpnQuery);
     let inv;
     if (match) inv = s.inv.map(i => i === match ? { ...i, qty: i.qty + n, loc: s.loc || i.loc } : i);
-    else inv = [{ mpn: s.mpnQuery.trim(), mfr: s.fields['1V'] || '', type: s.dType, value: parseValue(s.dValue, s.dType), pkg: s.dPkg, tol: '', qty: n, loc: s.loc || '—' }, ...s.inv];
+    else inv = [{ mpn: s.mpnQuery.trim(), mfr: s.fields['1V'] || '', type: (s.cats.some(c => c.status === 'Rechazada' && c.name.toLowerCase() === String(s.dType).trim().toLowerCase()) ? 'O' : typeCode(s.dType)) || 'O', value: parseValue(s.dValue, typeCode(s.dType)), pkg: s.dPkg, tol: '', qty: n, loc: s.loc || '—' }, ...s.inv];
     const base = match || inv[0];
     this.push({ op: 'add', kind: match ? 'Entrada' : 'Alta', item: { ...toRemote(base), qty: n, loc: s.loc || base.loc } });
     this.saveInv(inv, match ? `+${n} uds añadidas` : 'Referencia dada de alta', { mpn: s.mpnQuery.trim(), delta: n, after: (match ? match.qty : 0) + n, kind: match ? 'Entrada' : 'Alta' });
@@ -878,7 +965,7 @@ class Component extends DCLogic {
         const p = l.split(sep).map(x => x.trim().replace(/^"|"$/g, ''));
         const g = k => c[k] >= 0 ? (p[c[k]] || '') : '';
         const tl = g('type').toLowerCase();
-        const type = tl.startsWith('r') ? 'R' : tl.startsWith('c') ? 'C' : tl.startsWith('b') || tl === 'l' ? 'L' : tl.startsWith('i') ? 'IC' : (detect(g('mpn')).type || 'O');
+        const type = tl.startsWith('r') ? 'R' : tl.startsWith('c') ? 'C' : tl.startsWith('b') || tl === 'l' ? 'L' : tl.startsWith('i') ? 'IC' : (typeCode(g('type')) || detect(g('mpn')).type || 'O');
         return { mpn: g('mpn'), mfr: g('mfr'), type, value: parseValue(g('value'), type), pkg: g('pkg'), tol: g('tol'), qty: parseInt(g('qty'), 10) || 0, loc: g('loc') || '—' };
       }).filter(i => i.mpn);
       const keys = new Set(items.map(i => norm(i.mpn)));
@@ -891,7 +978,7 @@ class Component extends DCLogic {
   renderVals() {
     const s = this.state, inv = s.inv;
     const match = this.find(s.mpnQuery);
-    const target = match ? { type: match.type, value: match.value, pkg: match.pkg } : { type: s.dType, value: parseValue(s.dValue, s.dType), pkg: s.dPkg.trim() };
+    const target = match ? { type: match.type, value: match.value, pkg: match.pkg } : { type: typeCode(s.dType), value: parseValue(s.dValue, typeCode(s.dType)), pkg: s.dPkg.trim() };
     const tolPct = this.props.tolerancePct ?? 5, tol = tolPct / 100;
     const samePkg = this.props.samePackage ?? false;
     const maxSim = this.props.maxSimilar ?? 6;
@@ -910,16 +997,24 @@ class Component extends DCLogic {
           onOpen: () => this.handleRaw(i.mpn)
         }));
     }
+    const hasCat = !hasValue && target.type && !['O', 'IC', 'R', 'C', 'L'].includes(target.type);
+    if (hasCat) {
+      const tc = String(target.type).toLowerCase();
+      similar = inv.filter(i => i !== match && i.qty > 0 && String(i.type).toLowerCase() === tc)
+        .sort((a, b) => ((b.pkg === target.pkg) - (a.pkg === target.pkg)) || b.qty - a.qty).slice(0, maxSim)
+        .map(i => ({ valueLabel: i.mpn, mpn: i.mfr || typeName(i.type), tol: i.tol || '—', loc: i.loc, qty: i.qty,
+          diffLabel: 'Misma categoría', pkgLabel: (i.pkg || '—') + (target.pkg && i.pkg === target.pkg ? ' · igual' : ''), onOpen: () => this.handleRaw(i.mpn) }));
+    }
     const status = !match ? 'unknown' : match.qty > 0 ? 'stock' : 'empty';
     const q = s.search.trim().toLowerCase();
-    const invRows = inv.filter(i => !q || [i.mpn, i.mfr, fmt(i.value, i.type), short(i.value, i.type), i.pkg, i.loc, TYPES[i.type]].join(' ').toLowerCase().includes(q))
+    const invRows = inv.filter(i => !q || [i.mpn, i.mfr, fmt(i.value, i.type), short(i.value, i.type), i.pkg, i.loc, typeName(i.type)].join(' ').toLowerCase().includes(q))
       .map(i => ({ mpn: i.mpn, pkg: i.pkg || '—', loc: i.loc, qty: i.qty, zero: i.qty <= 0,
-        valueLabel: i.value != null ? fmt(i.value, i.type) : (TYPES[i.type] || 'Componente'), onOpen: () => this.handleRaw(i.mpn) }));
+        valueLabel: i.value != null ? fmt(i.value, i.type) : (typeName(i.type) || 'Componente'), onOpen: () => this.handleRaw(i.mpn) }));
     const raw = s.raw || '';
-    const tLabel = (hasValue ? fmt(target.value, target.type) : (TYPES[target.type] || 'Componente')) + (target.pkg ? ' · ' + target.pkg : '');
+    const tLabel = (hasValue ? fmt(target.value, target.type) : (typeName(target.type) || 'Componente')) + (target.pkg ? ' · ' + target.pkg : '');
     const set = k => e => this.setState({ [k]: e.target.value });
     const tolPctV = this.props.tolerancePct ?? 5;
-    const simRow = ({ i, r, same }, pkg) => ({ valueLabel: i.value != null ? fmt(i.value, i.type) : (TYPES[i.type] || ''), mpn: i.mpn, tol: i.tol || '—', loc: i.loc, qty: i.qty,
+    const simRow = ({ i, r, same }, pkg) => ({ valueLabel: i.value != null ? fmt(i.value, i.type) : typeName(i.type), mpn: i.mpn, tol: i.tol || '—', loc: i.loc, qty: i.qty,
       diffLabel: Math.abs(r) < 1e-6 ? (i.qty > 0 ? 'Exacto' : 'Exacto · agotado') : (r > 0 ? '+' : '') + (r * 100).toFixed(1) + '%',
       pkgLabel: (i.pkg || '—') + (pkg && same ? ' · igual' : ''), onOpen: () => this.handleRaw(i.mpn) });
     // quick search
@@ -993,6 +1088,7 @@ class Component extends DCLogic {
       invCount: inv.length, invUnits: inv.reduce((a, i) => a + (i.qty || 0), 0),
       videoRef: this.videoRef, fileRef: this.fileRef,
       camOn: s.camOn, camOff: !s.camOn, camErr: s.camErr, hasCamErr: !!s.camErr,
+      pickOcr: this.pickOcr, onOcr: this.onOcr, ocrRef: this.ocrRef, ocrBusy: !!s.ocrBusy, ocrLabel: s.ocrBusy ? (s.ocrMsg || 'Leyendo…') : 'Leer texto de la etiqueta (foto)',
       startCam: this.startCam, stopCam: this.stopCam, photoRef: this.photoRef, pickPhoto: this.pickPhoto, onPhoto: this.onPhoto,
       hasZoom: !!s.zoomCaps, zoom: s.zoom || 1, zoomMin: s.zoomCaps ? s.zoomCaps.min : 1, zoomMax: s.zoomCaps ? s.zoomCaps.max : 1, zoomStep: s.zoomCaps ? s.zoomCaps.step : 0.1,
       zoomLabel: (s.zoom || 1).toFixed(1) + '×', setZoom: this.setZoom, refocus: this.refocus,
@@ -1013,8 +1109,18 @@ class Component extends DCLogic {
       addBag: this.addBag, addLabel: match ? `Añadir ${parseInt(s.bagQty, 10) || 0} uds al stock` : `Dar de alta con ${parseInt(s.bagQty, 10) || 0} uds`,
       canTake: !!match && match.qty > 0, takeN: s.takeN, onTakeN: set('takeN'), takeOut: this.takeOut,
       similar, hasSimilar: similar.length > 0, noSimilar: similar.length === 0,
-      noSimilarText: hasValue ? `Nada en stock dentro de ±${tolPct}%.` : 'Indica tipo y valor para buscar equivalentes.',
-      simCriteria: `Mismo tipo · ±${tolPct}%` + (samePkg ? ' · mismo encapsulado' : ''),
+      noSimilarText: hasValue ? `Nada en stock dentro de ±${tolPct}%.` : hasCat ? `No hay otros «${typeName(target.type)}» en stock.` : 'Indica la categoría (y el valor si es R, C o L) para buscar equivalentes.',
+      catOpts: [...new Set([...CATS, ...s.cats.filter(c => c.status !== 'Rechazada').map(c => c.name), ...inv.map(i => typeName(i.type)).filter(Boolean)])]
+        .filter(n => !s.cats.some(c => c.status === 'Rechazada' && c.name.toLowerCase() === n.toLowerCase())),
+      catNote: (() => {
+        const n = String(s.dType || '').trim(); if (!n || match) return '';
+        const l = n.toLowerCase(), c = s.cats.find(x => x.name.toLowerCase() === l);
+        if (c && c.status === 'Pendiente validación') return 'Pendiente de validación por el administrador';
+        if (c && c.status === 'Rechazada') return 'Categoría rechazada: se guardará como «Otro»';
+        if (c || CATS.some(x => x.toLowerCase() === l) || ['R', 'C', 'L', 'IC', 'O'].includes(typeCode(n))) return '';
+        return 'Categoría nueva: al guardar se envía al administrador para validarla';
+      })(),
+      simCriteria: hasCat ? 'Misma categoría' : `Mismo tipo · ±${tolPct}%` + (samePkg ? ' · mismo encapsulado' : ''),
       hasFields: Object.keys(s.fields).length > 0,
       fieldRows: Object.keys(s.fields).map(id => ({ id, label: FIELD_LABELS[id] || id, value: s.fields[id] })),
       rawDisplay: raw.replace(/\x1d/g, '⟨GS⟩').replace(/\x1e/g, '⟨RS⟩').replace(/\x04/g, '⟨EOT⟩'),

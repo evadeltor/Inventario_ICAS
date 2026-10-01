@@ -1,6 +1,6 @@
 // Red primero para la app (siempre la última versión si hay cobertura); caché si no hay red
-const CACHE = 'pcbinv-v7';
-const CDN = ['unpkg.com', 'jsdelivr.net', 'cdn.sheetjs.com', 'fonts.googleapis.com', 'fonts.gstatic.com'];
+const CACHE = 'pcbinv-v10';
+const CDN = ['unpkg.com', 'jsdelivr.net', 'cdn.sheetjs.com', 'tessdata.projectnaptha.com', 'fonts.googleapis.com', 'fonts.gstatic.com'];
 const SHELL = ['./', './index.html', './support.js', './manifest.webmanifest', './apps-script.gs',
   './_ds/industry-ebf0d374-a771-42d1-a95c-91d2700af12e/styles.css',
   './_ds/industry-ebf0d374-a771-42d1-a95c-91d2700af12e/_ds_bundle.js'];
