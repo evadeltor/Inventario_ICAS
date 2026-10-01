@@ -431,7 +431,11 @@ const SEED = [
 ].map(r => ({ mpn: r[0], mfr: r[1], type: r[2], value: r[3], pkg: r[4], tol: r[5], qty: r[6], loc: r[7] }));
 const DEFAULT_SHEET = 'https://script.google.com/macros/s/AKfycbwg4cjeO36EVTZB-gtv-49WkjxSM0mCcRYXybuxAlSqYC4kvBR6reU81eVYhJjVeVS4/exec';
 const LOGKEY = 'pcbinv.log.v1', USERKEY = 'pcbinv.user', SHEETKEY = 'pcbinv.sheet', PENDKEY = 'pcbinv.pending';
-const toRemote = i => ({ mpn: i.mpn, mfr: i.mfr || '', type: i.type || '', value: i.value != null ? short(i.value, i.type) : '', pkg: i.pkg || '', tol: i.tol || '', qty: i.qty || 0, loc: i.loc || '' });
+const txt = v => v ? "'" + v : '';
+const toRemote = i => ({ mpn: txt(i.mpn), mfr: i.mfr || '', type: i.type || '', value: txt(i.value != null ? short(i.value, i.type) : ''), pkg: txt(i.pkg), tol: txt(i.tol), qty: i.qty || 0, loc: txt(i.loc) });
+const fixPkg = v => { const s = String(v == null ? '' : v).trim(); return /^\d{3}$/.test(s) && ['201', '402', '603', '805'].includes(s) ? '0' + s : s; };
+const fixTol = v => { const s = String(v == null ? '' : v).trim(); const n = parseFloat(s); return /^0?\.\d+$/.test(s) && n < 1 ? +(n * 100).toFixed(3) + '%' : s; };
+const locIn = l => l && l !== '—' ? ' en ' + l : '';
 const DEMO_A = '>[)>06<GS>KCC7565<GS>14K027<GS>1PPFC-W0805LF-03-5051-B<GS>Q40<GS>11K057316233<GS>4LUS<GS>1VTT Electronics';
 const DEMO_A_OLD = '[)>\x1e06\x1dKCC7565\x1d14K027\x1d1PPFC-W0805LF-03-5051-B\x1dQ40\x1d11K057316233\x1d4LUS\x1d1VTT Electronics\x1e\x04';
 const DEMO_B = '>[)>06<GS>KCC7565<GS>14K012<GS>1PRC0805FR-0710KL<GS>Q100<GS>11K057316233<GS>4LTW<GS>1VYageo';
@@ -481,8 +485,9 @@ function detect(mpn) {
   if (!pkg && mur) pkg = { '03':'0201', '15':'0402', '18':'0603', '21':'0805', '31':'1206', '32':'1210' }[mur[1]] || '';
   let type = '';
   if (/^(GRM|GCM|CL\d|C\d{4}|CC\d|KGM|EMK|TMK|GRT|CGA)/.test(u)) type = 'C';
-  else if (/^(RC|ERJ|ERA|CRCW|PFC|RN|RT|RG|CRG|MCR|TNPW|WR|RMCF|AC\d)/.test(u)) type = 'R';
+  else if (/^(RC|ERJ|ERA|CRCW|PFC|RN|RT|RG|CRG|MCR|TNPW|WR|RMCF|AC\d|CPF|CRGP|CRGH|RP\d|RR\d|RK73|SR\d|ESR|PAT|PNM|MCT|MCS|CR\d|CHP|HP\d|ARG|TR\d|RNCP|RNCF|RMC|KTR|PCF|ERJP)/.test(u)) type = 'R';
   let rest = pkg ? u.replace(pkg, ' ') : u;
+  if (!type && /\d{1,3}[RKM]\d{0,3}/.test(rest.replace(/^[A-Z]+/, ''))) type = 'R';
   if (/^RC/.test(u)) rest = rest.replace(/-(07|10|13)(?=\d)/, '-');
   let value = null;
   if (type === 'R') {
@@ -630,7 +635,10 @@ class Component extends DCLogic {
   pending = loadLS(PENDKEY, []);
 
   componentDidMount() {
-    if ('serviceWorker' in navigator && location.protocol.startsWith('http')) navigator.serviceWorker.register('sw.js').catch(() => {});
+    if ('serviceWorker' in navigator) {
+      if (location.hostname.endsWith('github.io')) navigator.serviceWorker.register('sw.js').catch(() => {});
+      else navigator.serviceWorker.getRegistrations().then(rs => rs.forEach(r => r.unregister())).catch(() => {});
+    }
     this.onOnline = () => { this.setState({ online: true }); this.flush(); };
     this.onOffline = () => this.setState({ online: false });
     window.addEventListener('online', this.onOnline); window.addEventListener('offline', this.onOffline);
@@ -647,7 +655,7 @@ class Component extends DCLogic {
   setPending(p) { this.pending = p; this.setState({ nPending: p.length }); try { localStorage.setItem(PENDKEY, JSON.stringify(p)); } catch (e) {} }
   applyRemote(j) {
     if (!j || !j.ok) throw new Error((j && j.error) || 'Respuesta no válida');
-    const inv = j.items.map(i => { const type = i.type || detect(i.mpn).type || 'O'; return { ...i, type, value: parseValue(i.value, type) }; });
+    const inv = j.items.map(i => { const mpn = String(i.mpn); const type = i.type || detect(mpn).type || 'O'; return { ...i, mpn, type, value: parseValue(String(i.value), type), pkg: fixPkg(i.pkg), tol: fixTol(i.tol), loc: String(i.loc || '') }; });
     try { localStorage.setItem(KEY, JSON.stringify(inv)); localStorage.setItem(LOGKEY, JSON.stringify(j.log)); } catch (e) {}
     this.setState({ inv, log: j.log, sync: 'ok', syncMsg: '', lastSync: Date.now() });
   }
@@ -952,12 +960,12 @@ class Component extends DCLogic {
       const stock = exact.reduce((a, x) => a + x.i.qty, 0);
       const eqSame = equiv.filter(x => x.same), eqStock = eqSame.reduce((a, x) => a + x.i.qty, 0);
       const status = stock >= need ? 'ok' : (stock + eqStock >= need && eqSame.length) ? 'equiv' : stock > 0 ? 'part' : 'miss';
-      const where = exact.filter(x => x.i.qty > 0).map(x => `${x.i.loc} (${x.i.qty})`).join(', ');
+      const where = exact.filter(x => x.i.qty > 0).map(x => (x.i.loc && x.i.loc !== '—' ? x.i.loc + ' ' : '') + `(${x.i.qty} uds)`).join(', ');
       let detail = '';
-      if (status === 'ok') detail = 'En ' + where;
-      else if (status === 'equiv') detail = (stock ? 'Exactas en ' + where + '. ' : '') + 'Usa ' + eqSame.slice(0, 2).map(x => `${fmt(x.i.value, x.i.type)} (${(x.r > 0 ? '+' : '') + (x.r * 100).toFixed(1)}%) en ${x.i.loc}, ${x.i.qty} uds`).join(' o ');
-      else if (status === 'part') detail = 'En ' + where + ` · faltan ${need - stock}`;
-      else if (equiv.length) detail = 'Solo en otro encapsulado: ' + equiv.slice(0, 2).map(x => `${fmt(x.i.value, x.i.type)} ${x.i.pkg} en ${x.i.loc}`).join(', ');
+      if (status === 'ok') detail = 'Disponible: ' + where;
+      else if (status === 'equiv') detail = (stock ? 'Exactas: ' + where + '. ' : '') + 'Usa ' + eqSame.slice(0, 2).map(x => `${fmt(x.i.value, x.i.type)} (${(x.r > 0 ? '+' : '') + (x.r * 100).toFixed(1)}%)${locIn(x.i.loc)}, ${x.i.qty} uds`).join(' o ');
+      else if (status === 'part') detail = 'Disponible: ' + where + ` · faltan ${need - stock}`;
+      else if (equiv.length) detail = 'Solo en otro encapsulado: ' + equiv.slice(0, 2).map(x => `${fmt(x.i.value, x.i.type)} ${x.i.pkg}${locIn(x.i.loc)}`).join(', ');
       return { ...b, need, stock, status, detail };
     });
     this.bomEval = bomEval;
